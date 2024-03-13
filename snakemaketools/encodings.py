@@ -1,11 +1,76 @@
+import abc
 import base64
+import json
 import os
 import textwrap
-import types
 import typing
+from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
+
+from snakemake.exceptions import WildcardError
+
+#         path = Path(decompressed_path)
+#         path_parts = path.parts
+#         assert (
+#             path_parts[0] == self._compressed_folder
+#         ), f"No compressed part in `{path}`."
+#         middle = "/".join(path_parts[2:-1])
+#         return middle
+from snakemake.io import expand
 
 import brotli
+
+
+def expand_dict_partially(name_to_path_pattern: dict[str, str], wildcards, **kwargs):
+    """
+    Prefill a dictionary with path patterns with provided **kwargs and allow snakemake to fill in the rest.
+
+     _________________________________________
+    / Like snakamake.io.expand, but accepting \
+    | dictionary name->pattern instead of a   |
+    | list of patterns only, so that one can  |
+    \ use names in the run command            /
+     -----------------------------------------
+            \   ^__^
+             \  (oo)\_______
+                (__)\       )\/\
+                    ||----w |
+                    ||     ||
+    """
+    res = {}
+    for name, pattern in name_to_path_pattern.items():
+        try:
+            res[name] = expand(
+                [pattern],
+                allow_missing=True,
+                **wildcards,
+                **kwargs,
+            )[0]
+        except WildcardError as wildcard_error:
+            print(f"name={name} pattern={pattern}")
+            raise wildcard_error
+    return res
+
+
+def partial_format(string: str, **kwargs):
+    assert "allow_missing" not in kwargs
+    res = expand(string, allow_missing=True, **kwargs)
+    if len(res) == 1:
+        return res[0]
+    return res
+
+
+def fill_path_templates_with_wildcards(
+    path_templates: SimpleNamespace,
+    wildcards: dict[str, str | bool],
+) -> SimpleNamespace:
+    return SimpleNamespace(
+        **{
+            name: Path(str(path_template).format(**wildcards))
+            for name, path_template in path_templates.__dict__.items()
+        }
+    )
 
 
 def iter_brackets(
@@ -31,6 +96,18 @@ def extract_outermost_brackets(path):
     return tuple(iter_brackets(str(path)))
 
 
+def first_bra_last_ket(path: str) -> tuple[int, int]:
+    path = str(path)
+    i = 0
+    for i in range(len(path)):
+        if path[i] == "[":
+            break
+    for j in reversed(range(len(path))):
+        if path[j] == "]":
+            break
+    return i, j
+
+
 def compress(
     path: str,
     compressor: typing.Callable[[bytes], bytes] = brotli.compress,
@@ -52,45 +129,91 @@ def decompress(
     return decompressed
 
 
-def get_compressed_part(path: Path | str, compressed_folder="CMPR") -> str:
-    """First two folders and file name are Snakemake rule recognition."""
-    path = Path(path)
-    path_parts = path.parts
-    assert path_parts[0] == compressed_folder, f"No compressed part in `{path}`."
-    middle = "/".join(path_parts[2:-1])
-    return middle
+@dataclass
+class PathEncoder(abc.ABC):
+    _compress: typing.Callable[[str], str] = compress
+    _decompress: typing.Callable[[str], str] = decompress
+    _wildcard_indicating_compressed: str = "compressed"
 
-
-class PathTemplates:
-    def __init__(
-        self,
-        wildcards: dict[str, typing.Any],
-        compress: typing.Callable[[str], str] = compress,
-        compressed_folder: str = "CMPR",
-    ):
-        self._wildcards = wildcards
-        self.compress = compress
-        self.raw = types.SimpleNamespace()
-        self.real = types.SimpleNamespace()
-        self.full = types.SimpleNamespace()
-        self.compressed_folder = compressed_folder
-
+    @abc.abstractmethod
     def encode(self, path: Path | str) -> Path:
-        """The compressed part contain all of the path, including beginning and filename."""
-        path = Path(path)
-        path_parts = path.parts
-        if path_parts[0] != self.compressed_folder:
-            return path
-        beginning = Path("/".join(path_parts[:2]))
-        filename = path_parts[-1]
-        return beginning / self.compress(str(path)) / filename
+        """Encode a path to make a valid FS path."""
 
-    def set(self, **kwargs: Path | str) -> None:
-        for alias, path in kwargs.items():
-            self.raw.__dict__[alias] = Path(path)
-            filled_path = Path(str(path).format(**self._wildcards))
-            self.full.__dict__[alias] = filled_path
-            self.real.__dict__[alias] = self.encode(filled_path)
+    def get_inputs(
+        self,
+        compressed: str,
+    ) -> typing.Iterable[Path]:
+        decompressed = self._decompress(str(compressed))
+        return map(self.encode, extract_outermost_brackets(decompressed))
 
-    def __repr__(self):
-        return f"full:\n{repr(self.full)}\nreal\n{repr(self.real)}"
+    def parse_output(
+        self,
+        *inputs_names,
+    ) -> typing.Callable:
+        """Return a parser of inputs from outputs given input names."""
+        for name in inputs_names:
+            assert isinstance(name, str)
+
+        def _parser(wildcards):
+            return dict(
+                zip(
+                    inputs_names,
+                    self.get_inputs(
+                        wildcards.__dict__[self._wildcard_indicating_compressed]
+                    ),
+                )
+            )
+
+        return _parser
+
+    def encode_paths(
+        self, paths: SimpleNamespace
+    ) -> tuple[SimpleNamespace, SimpleNamespace]:
+        return SimpleNamespace(
+            **{name: self.encode(path) for name, path in paths.__dict__.items()}
+        )
+
+
+@dataclass
+class BestPathEncoder(PathEncoder):
+    compressable_tag: str = "P"
+
+    def is_to_compress(self, path: Path | str) -> bool:
+        return str(path)[: len(self.compressable_tag)] == self.compressable_tag
+
+    def encode(self, decompressed) -> Path:
+        """The compressed part contains all of the path, including beginning and filename."""
+        decompressed = str(decompressed)
+        if not self.is_to_compress(decompressed):
+            return Path(decompressed)
+        start, end = first_bra_last_ket(decompressed)
+        if start >= end:
+            return Path(decompressed)
+        compressed = decompressed[:start]
+        compressed += self._compress(decompressed[start : end + 1])
+        if end + 1 < len(decompressed):
+            compressed += decompressed[end + 1 :]
+        return Path(compressed)
+
+
+@dataclass
+class DBPathEncoder(PathEncoder):
+    """A general place holder for a path encoder that uses a thread-safe DB to generate individual path names."""
+
+
+def join_paths(
+    prefix: str,
+    suffix: str,
+    *paths: Path | str,
+) -> Path:
+    """Create a path following pattern "<prefix>[path]..[path]<suffix>".
+
+    To be used upon the long path templates generation in the pipeline scripts.
+    """
+    res = Path(prefix)
+    middle_path = "][".join(map(str, paths))
+    if len(middle_path) > 0:
+        res /= f"[{middle_path}]"
+    res /= suffix
+    assert str(res) != ".", "Cannot have prefix, suffix, and all paths empty."
+    return res
