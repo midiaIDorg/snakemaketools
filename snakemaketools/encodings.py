@@ -1,11 +1,13 @@
 import abc
 import base64
+import functools
 import json
 import os
 import textwrap
 import typing
 from dataclasses import dataclass
 from pathlib import Path
+from pprint import pprint
 from types import SimpleNamespace
 
 from snakemake.exceptions import WildcardError
@@ -145,18 +147,34 @@ class PathEncoder(abc.ABC):
         compressed: str,
     ) -> typing.Iterable[Path]:
         decompressed = self._decompress(str(compressed))
-        return map(self.encode, extract_outermost_brackets(decompressed))
+        brackets_content = extract_outermost_brackets(decompressed)
+        return map(self.encode, brackets_content)
+
+    def get_full_inputs(self, compressed: str, *inputs_names: str) -> dict[str, str]:
+        decompressed = self._decompress(str(compressed))
+        brackets_content = extract_outermost_brackets(decompressed)
+        return dict(zip(inputs_names, brackets_content))
+
+    def print_decompressed_inputs(self, compressed: str, *names: str) -> None:
+        print("Real Arguments")
+        pprint(
+            self.get_full_inputs(
+                compressed,
+                *names,
+            )
+        )
+        print()
 
     def parse_output(
         self,
-        *inputs_names,
+        *inputs_names: str,
     ) -> typing.Callable:
         """Return a parser of inputs from outputs given input names."""
         for name in inputs_names:
             assert isinstance(name, str)
 
         def _parser(wildcards):
-            return dict(
+            res = dict(
                 zip(
                     inputs_names,
                     self.get_inputs(
@@ -164,6 +182,7 @@ class PathEncoder(abc.ABC):
                     ),
                 )
             )
+            return res
 
         return _parser
 
