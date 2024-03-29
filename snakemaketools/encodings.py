@@ -142,6 +142,7 @@ class PathEncoder(abc.ABC):
     def encode(self, path: Path | str) -> Path:
         """Encode a path to make a valid FS path."""
 
+    # @functools.lru_cache(maxsize=None)
     def get_inputs(
         self,
         compressed: str,
@@ -165,6 +166,7 @@ class PathEncoder(abc.ABC):
         )
         print()
 
+    # @functools.lru_cache(maxsize=None)
     def parse_output(
         self,
         *inputs_names: str,
@@ -184,11 +186,9 @@ class PathEncoder(abc.ABC):
             )
             return res
 
-        return _parser
+        return functools.cache(_parser)
 
-    def encode_paths(
-        self, paths: SimpleNamespace
-    ) -> tuple[SimpleNamespace, SimpleNamespace]:
+    def encode_paths(self, paths: SimpleNamespace) -> SimpleNamespace:
         return SimpleNamespace(
             **{name: self.encode(path) for name, path in paths.__dict__.items()}
         )
@@ -221,19 +221,24 @@ class DBPathEncoder(PathEncoder):
     """A general place holder for a path encoder that uses a thread-safe DB to generate individual path names."""
 
 
+def embracket(*paths: Path | str) -> str:
+    res = "][".join(map(str, paths))
+    if len(res) > 0:
+        res = f"[{res}]"
+    return res
+
+
 def join_paths(
     prefix: str,
     suffix: str,
     *paths: Path | str,
 ) -> Path:
-    """Create a path following pattern "<prefix>[path]..[path]<suffix>".
+    """Create a path following pattern "<prefix>/[path]..[path]/<suffix>".
 
     To be used upon the long path templates generation in the pipeline scripts.
     """
     res = Path(prefix)
-    middle_path = "][".join(map(str, paths))
-    if len(middle_path) > 0:
-        res /= f"[{middle_path}]"
+    res /= embracket(*paths)
     res /= suffix
     assert str(res) != ".", "Cannot have prefix, suffix, and all paths empty."
     return res
