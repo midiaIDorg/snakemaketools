@@ -83,7 +83,9 @@ def get_wished_inputs_and_outputs(
 
     path_template_copy_from_to = {}
     for path_template_name, final_location in config["wishlist"].items():
-        assert path_template_name in encoded_paths.__dict__
+        assert (
+            path_template_name in encoded_paths.__dict__
+        ), f"Missing `{path_template_name}`"
         path_template_copy_from_to[path_template_name] = (
             str(encoded_paths.__dict__[path_template_name]),
             str(pipeline_output_folder / final_location),
