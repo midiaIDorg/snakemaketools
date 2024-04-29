@@ -1,6 +1,7 @@
 from pathlib import Path
 from pprint import pprint
 from types import SimpleNamespace
+from warnings import warn
 
 import tomllib
 from snakemaketools.encodings import BestPathEncoder, fill_path_templates_with_wildcards
@@ -76,12 +77,25 @@ def get_wished_inputs_and_outputs(
 
     path_templates = create_path_templates(wildcards, forward_rules)
 
+    fullfillable_wishes = {}
+    obtainable_path_templates = {}
+    for wish, locations in config["wishlist"].items():
+        if wish in path_templates.__dict__:
+            fullfillable_wishes[wish] = locations
+            obtainable_path_templates[wish] = path_templates.__dict__[wish]
+        else:
+            msg = f"You cannot wish for `{wish}`. Your settings prevent that wish of coming true."
+            warn(msg)
+    obtainable_path_templates = SimpleNamespace(**obtainable_path_templates)
+
     encoder = BestPathEncoder()
-    filled_paths = fill_path_templates_with_wildcards(path_templates, wildcards)
+    filled_paths = fill_path_templates_with_wildcards(
+        obtainable_path_templates, wildcards
+    )
     encoded_paths = encoder.encode_paths(filled_paths)
 
     path_template_copy_from_to = {}
-    for path_template_name, final_location in config["wishlist"].items():
+    for path_template_name, final_location in fullfillable_wishes.items():
         assert (
             path_template_name in encoded_paths.__dict__
         ), f"Missing `{path_template_name}`"
