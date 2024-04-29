@@ -70,7 +70,6 @@ def get_wished_inputs_and_outputs(
 
     update_wildcards(wildcards, wildcard_diffs)
 
-    wildcards = SimpleNamespace(**wildcards)
     if not silent:
         print("Using the following final wildcards:")
         pprint(wildcards)

@@ -65,12 +65,11 @@ def partial_format(string: str, **kwargs):
 
 def fill_path_templates_with_wildcards(
     path_templates: SimpleNamespace,
-    wildcards: SimpleNamespace,
+    wildcards: dict,
 ) -> SimpleNamespace:
-    WILDCARDS = wildcards.__dict__
     return SimpleNamespace(
         **{
-            name: Path(str(path_template).format(**WILDCARDS))
+            name: Path(str(path_template).format(**wildcards))
             for name, path_template in path_templates.__dict__.items()
         }
     )
