@@ -6,7 +6,18 @@ from warnings import warn
 import tomllib
 from snakemaketools.encodings import BestPathEncoder, fill_path_templates_with_wildcards
 from snakemaketools.import_ops import script_to_globals
-from snakemaketools.wildcard_ops import update_wildcards
+
+
+def update_wildcards(wildcards: dict, wildcard_diffs: dict) -> None:
+    """Dict update but only for existing entries."""
+    for wildcard_name in wildcard_diffs:
+        assert (
+            wildcard_name in wildcards
+        ), f"YOU ARE TRYING TO UPDATE A NONEXISTING (FORWARD) WILDCARD {wildcard_name}"
+        print(
+            f"updating wildcard '{wildcard_name}'.\ndefault={wildcards[wildcard_name]}\nnew={wildcard_diffs[wildcard_name]}\n"
+        )
+        wildcards[wildcard_name] = wildcard_diffs[wildcard_name]
 
 
 def get_wished_inputs_and_outputs(
@@ -14,7 +25,7 @@ def get_wished_inputs_and_outputs(
     config_path: str | Path,
     pipeline_script_path: str | Path,
     pipeline_output_folder: str | Path,
-    wildcard_diffs_serialized: str | None = None,
+    wildcard_diffs_serialized: str = "",
     silent: bool = False,
 ) -> dict[str, tuple[str, str]]:
     """
@@ -51,14 +62,13 @@ def get_wished_inputs_and_outputs(
         len(config["wishlist"]) > 0
     ), "This config's [wishlist] section cannot be empty."
 
-    wildcard_diffs = {}
-    if "wildcard_diffs" in config:
-        wildcard_diffs = config["wildcard_diffs"]
+    wildcards = config["wildcards"]
 
-    if (
-        wildcard_diffs_serialized is not None
-        and wildcard_diffs_serialized != "default_wildcards"
-    ):
+    if len(wildcard_diffs_serialized) > 1 and wildcard_diffs_serialized[-1] == "/":
+        wildcard_diffs_serialized = wildcard_diffs_serialized[:-1]
+
+    wildcard_diffs = {}
+    if wildcard_diffs_serialized:
         for key_equals_value in wildcard_diffs_serialized.split("/"):
             key, value = key_equals_value.split("=")
             wildcard_diffs[key] = value
@@ -66,10 +76,10 @@ def get_wished_inputs_and_outputs(
     with open(pipeline_script_path, "r") as script:
         script_globals = {}
         exec(script.read(), script_globals)
-        wildcards = script_globals["wildcards"]
         create_path_templates = script_globals["create_path_templates"]
 
-    update_wildcards(wildcards, wildcard_diffs)
+    if len(wildcard_diffs):
+        update_wildcards(wildcards, wildcard_diffs)
 
     if not silent:
         print("Using the following final wildcards:")
