@@ -22,7 +22,7 @@ def update_wildcards(wildcards: dict, wildcard_diffs: dict) -> None:
 
 def get_wished_inputs_and_outputs(
     forward_rules_path: str | Path,
-    config_path: str | Path,
+    config: str | Path | dict,
     pipeline_script_path: str | Path,
     pipeline_output_folder: str | Path,
     wildcard_diffs_serialized: str = "",
@@ -33,21 +33,19 @@ def get_wished_inputs_and_outputs(
 
     Arguments:
         forward_rules_path (str,Path): A path to pipeline agnostic forward path template rules.
-        config_path (str,Path): Path to a toml config with potentially [wildcard_diffs] and required [wishlist].
+        config (str,Path): Path to a toml config with potentially [wildcard_diffs] and required [wishlist] or an already opened dictionary with those entries.
         pipeline_script_path (str,Path): A path to a python script defining paths.
         pipeline_output_folder (str,Path): Path to the final location [relative to midia_pipe].
         wildcard_diffs_serialized (str,Path): Serialized wildcard diffs in form of '<param_name_0>=<param_value_0>/.../<param_name_{k-1}>=<param_value_{k-1}>/'. Take precedence over other entries.
         silent (bool): Refrain from pushing to stdout.
     """
     (
-        config_path,
         pipeline_script_path,
         pipeline_output_folder,
         forward_rules_path,
     ) = map(
         Path,
         (
-            config_path,
             pipeline_script_path,
             pipeline_output_folder,
             forward_rules_path,
@@ -55,8 +53,10 @@ def get_wished_inputs_and_outputs(
     )
     forward_rules = SimpleNamespace(**script_to_globals(forward_rules_path))
 
-    with open(config_path, "rb") as f:
-        config = tomllib.load(f)
+    if not isinstance(config, dict):
+        with open(config, "rb") as f:
+            config = tomllib.load(f)
+
     assert "wishlist" in config, "This config needs to contain section [wishlist]"
     assert (
         len(config["wishlist"]) > 0
