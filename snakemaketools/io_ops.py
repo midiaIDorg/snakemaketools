@@ -8,6 +8,21 @@ from snakemaketools.encodings import BestPathEncoder, fill_path_templates_with_w
 from snakemaketools.import_ops import script_to_globals
 
 
+def string_cast(x: str) -> bool | int | float | str:
+    _x = x.lower()
+    if _x in ("true", "false"):
+        return _x == "true"
+    try:
+        return int(x)
+    except ValueError:
+        pass
+    try:
+        return float(x)
+    except ValueError:
+        pass
+    return x
+
+
 def update_wildcards(wildcards: dict, wildcard_diffs: dict) -> None:
     """Dict update but only for existing entries."""
     for wildcard_name in wildcard_diffs:
@@ -71,7 +86,7 @@ def get_wished_inputs_and_outputs(
     if wildcard_diffs_serialized:
         for key_equals_value in wildcard_diffs_serialized.split("/"):
             key, value = key_equals_value.split("=")
-            wildcard_diffs[key] = value
+            wildcard_diffs[key] = string_cast(value)
 
     with open(pipeline_script_path, "r") as script:
         script_globals = {}
