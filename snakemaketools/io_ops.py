@@ -92,6 +92,7 @@ def get_wished_inputs_and_outputs(
         script_globals = {}
         exec(script.read(), script_globals)
         create_path_templates = script_globals["create_path_templates"]
+    # from snakemaketools.base_pipeline import create_path_templates # this will result in slightly better error messages.
 
     if len(wildcard_diffs):
         update_wildcards(wildcards, wildcard_diffs)
