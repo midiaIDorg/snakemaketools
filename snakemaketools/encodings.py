@@ -1,6 +1,7 @@
 import abc
 import base64
 import functools
+import itertools
 import json
 import os
 import textwrap
@@ -171,8 +172,10 @@ class PathEncoder(abc.ABC):
         *inputs_names: str,
     ) -> typing.Callable:
         """Return a parser of inputs from outputs given input names."""
-        for name in inputs_names:
-            assert isinstance(name, str)
+        # for name in inputs_names:
+        #     assert isinstance(name, str)
+        if len(inputs_names) == 0:
+            inputs_names = (f"item_{i}" for i in itertools.count())
 
         def _parser(wildcards):
             res = dict(
