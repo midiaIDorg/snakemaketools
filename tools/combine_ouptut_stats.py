@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
-import itertools
 import pathlib
-import re
 import typing
 from warnings import warn
 
@@ -23,7 +21,6 @@ parser.add_argument(
 parser.add_argument("--output", type=str, help="Path to the output.", default=None)
 parser.add_argument(
     "--strict_on_path_existance",
-    type=bool,
     help="Raise OSError if a given file does not exist.",
     action="store_true",
 )
@@ -72,7 +69,7 @@ if __name__ == "__main__":
         ignore_index=True,
     )
     if args.output is None:
-        print(all_stats.to_csv())
+        print(all_stats.to_csv(index=False))
     else:
         save_df(all_stats, args.output)
 

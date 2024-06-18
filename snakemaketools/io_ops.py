@@ -1,3 +1,5 @@
+import itertools
+import re
 from pathlib import Path
 from pprint import pprint
 from types import SimpleNamespace
