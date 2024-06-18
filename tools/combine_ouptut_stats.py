@@ -18,7 +18,12 @@ parser.add_argument(
     nargs="+",
     type=str,
 )
-parser.add_argument("--output", type=str, help="Path to the output.", default=None)
+parser.add_argument(
+    "--output",
+    type=str,
+    help="Path to the output. If ommited, redirects to STD_OUT.",
+    default=None,
+)
 parser.add_argument(
     "--strict_on_path_existance",
     help="Raise OSError if a given file does not exist.",
