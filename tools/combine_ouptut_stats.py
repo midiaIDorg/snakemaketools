@@ -8,11 +8,11 @@ import typing
 from warnings import warn
 
 import pandas as pd
-from pandas_ops.io import read_df
+from pandas_ops.io import read_df, save_df
 from snakemaketools.io_ops import expand_path, parse_path
 
 parser = argparse.ArgumentParser(
-    description="Calculate the ms2 stats using the fast_ms2_stats way."
+    description="Combine statistics from a collection of bash extendable paths."
 )
 parser.add_argument(
     "expandable_bash_paths",
@@ -20,6 +20,7 @@ parser.add_argument(
     nargs="+",
     type=str,
 )
+parser.add_argument("--output", type=str, help="Path to the output.", default=None)
 parser.add_argument(
     "--strict_on_path_existance",
     type=bool,
@@ -70,8 +71,10 @@ if __name__ == "__main__":
         ),
         ignore_index=True,
     )
-    print(all_stats.to_csv())
-
+    if args.output is None:
+        print(all_stats.to_csv())
+    else:
+        save_df(all_stats, args.output)
 
 # # path = "out/base/{default,_old}/dataset=G8602/calibration=G8605/matches_config=_mz8/fragment_clusters_postprocessing=simple/fragment_clusters_postprocessing_config=default/edge_refinement_config=_ms2_norm_score_geq_{40,50,60,q10} out/base/{default,_old}/dataset=G8602/calibration=G8605/matches_config=_mz8/fragment_clusters_postprocessing=simple/fragment_clusters_postprocessing_config=default/edge_refinement_config=_maxRankLeq{6,8,10,12}"
 # path = "out/base/_old/fragment_stats_config={default,no_normalization,ramintense}/sage/stats.csv"
