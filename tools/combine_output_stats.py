@@ -2,6 +2,7 @@
 
 import argparse
 import pathlib
+import sys
 import typing
 from warnings import warn
 
@@ -66,18 +67,24 @@ def iter_dfs(
 
 
 if __name__ == "__main__":
-    all_stats = pd.concat(
+    dfs = list(
         iter_dfs(
             *args.expandable_bash_paths,
             _warn_if_missing=not args.strict_on_path_existance,
-        ),
-        ignore_index=True,
+        )
     )
-    if args.output is None:
-        print(all_stats.to_csv(index=False))
+    if len(dfs) == 0:
+        warn("Nothing found.")
+        sys.exit(1)
     else:
-        save_df(all_stats, args.output)
-
+        all_stats = pd.concat(
+            dfs,
+            ignore_index=True,
+        )
+        if args.output is None:
+            print(all_stats.to_csv(index=False))
+        else:
+            save_df(all_stats, args.output)
 # # path = "out/base/{default,_old}/dataset=G8602/calibration=G8605/matches_config=_mz8/fragment_clusters_postprocessing=simple/fragment_clusters_postprocessing_config=default/edge_refinement_config=_ms2_norm_score_geq_{40,50,60,q10} out/base/{default,_old}/dataset=G8602/calibration=G8605/matches_config=_mz8/fragment_clusters_postprocessing=simple/fragment_clusters_postprocessing_config=default/edge_refinement_config=_maxRankLeq{6,8,10,12}"
 # path = "out/base/_old/fragment_stats_config={default,no_normalization,ramintense}/sage/stats.csv"
 # path = "out/base/_old/fragment_stats_config={default,no_normalization,ramintense}/sage/edge_node_counts_summary.csv"
