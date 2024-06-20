@@ -58,7 +58,7 @@ def iter_dfs(
                 yield pd.concat([description, data], axis=1)
 
             else:
-                msg = f"File `{expand_path}` does not exist!"
+                msg = f"File `{expanded_path}` does not exist!"
                 if _warn_if_missing:
                     warn(msg)
                 else:
