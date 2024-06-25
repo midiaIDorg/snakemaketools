@@ -11,18 +11,9 @@ from pathlib import Path
 from pprint import pprint
 from types import SimpleNamespace
 
-from snakemake.exceptions import WildcardError
-
-#         path = Path(decompressed_path)
-#         path_parts = path.parts
-#         assert (
-#             path_parts[0] == self._compressed_folder
-#         ), f"No compressed part in `{path}`."
-#         middle = "/".join(path_parts[2:-1])
-#         return middle
-from snakemake.io import expand
-
 import brotli
+from snakemake.exceptions import WildcardError
+from snakemake.io import expand
 
 
 def expand_dict_partially(name_to_path_pattern: dict[str, str], wildcards, **kwargs):

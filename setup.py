@@ -27,6 +27,6 @@ setup(
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
     ],
-    install_requires=["snakemake"],
+    install_requires=["snakemake", "brotli"],
     scripts=glob.glob("tools/*.py"),
 )
