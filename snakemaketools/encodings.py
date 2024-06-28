@@ -165,21 +165,25 @@ class PathEncoder(abc.ABC):
         """Return a parser of inputs from outputs given input names."""
         # for name in inputs_names:
         #     assert isinstance(name, str)
-        if len(inputs_names) == 0:
-            inputs_names = (f"item_{i}" for i in itertools.count())
+        try:
+            if len(inputs_names) == 0:
+                inputs_names = (f"item_{i}" for i in itertools.count())
 
-        def _parser(wildcards):
-            res = dict(
-                zip(
-                    inputs_names,
-                    self.get_inputs(
-                        wildcards.__dict__[self._wildcard_indicating_compressed]
-                    ),
+            def _parser(wildcards):
+                res = dict(
+                    zip(
+                        inputs_names,
+                        self.get_inputs(
+                            wildcards.__dict__[self._wildcard_indicating_compressed]
+                        ),
+                    )
                 )
-            )
-            return res
+                return res
 
-        return functools.cache(_parser)
+            return functools.cache(_parser)
+        except Exception as e:
+            print(e)
+            raise e
 
     def encode_paths(self, paths: SimpleNamespace) -> SimpleNamespace:
         return SimpleNamespace(
