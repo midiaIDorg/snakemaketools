@@ -72,7 +72,8 @@ def iter_dfs(
 if __name__ == "__main__":
     dfs = list(
         iter_dfs(
-            args["fixed_parametrization"] * args["paths"],
+            args["fixed_parametrization"],
+            *args["paths"],
             _warn_if_missing=not args["strict_on_path_existance"],
         )
     )
