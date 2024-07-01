@@ -89,4 +89,3 @@ if __name__ == "__main__":
 # # path = "out/base/{default,_old}/dataset=G8602/calibration=G8605/matches_config=_mz8/fragment_clusters_postprocessing=simple/fragment_clusters_postprocessing_config=default/edge_refinement_config=_ms2_norm_score_geq_{40,50,60,q10} out/base/{default,_old}/dataset=G8602/calibration=G8605/matches_config=_mz8/fragment_clusters_postprocessing=simple/fragment_clusters_postprocessing_config=default/edge_refinement_config=_maxRankLeq{6,8,10,12}"
 # path = "out/base/_old/fragment_stats_config={default,no_normalization,ramintense}/sage/stats.csv"
 # path = "out/`base/_old/fragment_stats_config={default,no_normalization,ramintense}/sage/edge_node_counts_summary.csv"
-`
