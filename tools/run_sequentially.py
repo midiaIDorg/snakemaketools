@@ -20,6 +20,11 @@ parser.add_argument(
     nargs="+",
     type=str,
 )
+parser.add_argument(
+    "--silent",
+    help="Only subprocess stdout.",
+    action="store_true",
+)
 args = parser.parse_args()
 
 
@@ -27,9 +32,11 @@ if __name__ == "__main__":
     for expandable_bash_path in args.expandable_bash_paths:
         for path in expand_path(expandable_bash_path):
             formated_command = args.command.format(path=path)
-            print("Running:\n{formated_command}\n\n")
+            if not args.silent:
+                print("Running:\n{formated_command}\n\n")
             subprocess.run(
                 formated_command,
                 shell=True,
             )
-            print("Finished\n")
+            if not args.silent:
+                print("Finished\n")
