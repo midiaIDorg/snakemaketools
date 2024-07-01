@@ -82,7 +82,7 @@ if __name__ == "__main__":
             dfs,
             ignore_index=True,
         )
-        if args["output"] is None:`
+        if args["output"] is None:
             print(all_stats.to_csv(index=False))
         else:
             save_df(all_stats, args["output"])
