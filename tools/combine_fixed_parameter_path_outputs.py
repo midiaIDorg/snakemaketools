@@ -45,9 +45,11 @@ args = parser.parse_args().__dict__
 
 
 def iter_dfs(
+    fixed_parametrization: str,
     *paths: str,
     _warn_if_missing: bool = True,
 ) -> typing.Iterable[pd.DataFrame]:
+    col_names = Path(fixed_parametrization).parts
     for path in paths:
         for expanded_path in expand_path(path):
             expanded_path = Path(expanded_path)
@@ -70,7 +72,7 @@ def iter_dfs(
 if __name__ == "__main__":
     dfs = list(
         iter_dfs(
-            *args["paths"],
+            args["fixed_parametrization"] * args["paths"],
             _warn_if_missing=not args["strict_on_path_existance"],
         )
     )
