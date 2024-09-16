@@ -1,49 +1,97 @@
 %load_ext autoreload
 %autoreload 2
-import json
-from collections import OrderedDict
-from dataclasses import dataclass
-
-import networkx as nx
-from pony.orm import *
+from pony.orm import set_sql_debug
 from snakemaketools.datastructures import DotDict
+from snakemaketools.models import Node, db
 
 set_sql_debug()
-db = Database()
-
-
-class Node(db.Entity):
-    id = PrimaryKey(int, auto=True, unsigned=True)
-    input_to_rule = Optional("Rule", reverse="inputs", index=True)
-    rule_output = Optional("Rule", reverse="outputs")
-    description = Required(str, index=True)
-    datatype = Optional(str)
-    extension = Optional(str)
-
-
-class Rule(db.Entity):
-    id = PrimaryKey(int, auto=True, unsigned=True)
-    name = Required(str)  # Representation of a script.
-    inputs = Set(Node, reverse="input_to_rule", index=True)
-    outputs = Set(Node, reverse="rule_output")
-
 db.bind(provider='sqlite', filename=':memory:', create_db=True)
+# db.bind(provider='sqlite', filename='/tmp/test.sqlite', create_db=True)
 db.generate_mapping(create_tables=True)
 
 
-clustering_config = Node(
-    description=json.dumps({'hash':'adf23vs232'}),
-    datatype="clustering_config",
-    extension=".config",
-)
-raw_data_root = Node(
-    description=json.dumps({'dataset':'G8027'}),
-    datatype="tdf",
-    extension=".d",
-)
-commit()
+def cluster(raw_data: Node, config: Node) -> tuple[Node,Node,Node]:
+    for arg in (raw_data,config):
+        assert arg.id is not None
 
-clustering_config.id
-raw_data_root.id
+    _origin = dict(
+        rule='cluster',
+        inputs=dict(raw_data=raw_data.id, config=config.id),
+    )
 
-Rule.get()
+    return DotDict(
+        data = Node.GETINSERT(origin=_origin, type="clusters.startrek"),
+        stdout = Node.GETINSERT(origin=_origin, type="stdoud.txt"),
+        stderr = Node.GETINSERT(origin=_origin, type="stderr.txt"),
+    )
+
+cluster_fragments = cluster_precursors = cluster
+
+def get_cluster_stats(clusters: Node, config: Node) -> Node:
+    for arg in (raw_data,config):
+        assert arg.id is not None
+
+    _origin = dict(
+        rule='get_cluster_stats',
+        inputs=dict(clusters=clusters.id, config=config.id),
+    )
+
+    return DotDict(data=Node.GETINSERT(origin=_origin, type="cluster_stats.parquet"))
+
+
+def remove_rawdata_baseline(raw_data: Node, config: Node) -> Node:
+    for arg in (raw_data, config):
+        assert arg.id is not None
+
+    _origin = dict(
+        rule="remove_rawdata_baseline",
+        inputs=dict(raw_data=raw_data.id, config=config.id),
+    )
+
+    return DotDict(data=Node.GETINSERT(origin=_origin, type="tdf.d"))
+
+
+# script
+
+#roots
+roots = DotDict(
+    raw_data=Node.GETINSERT(origin={'dataset':'G8027'}, type="tdf.d"),
+)
+configs = DotDict(
+    precursors_clustering = Node.GETINSERT(origin={'hash':'adf23vs232'}, type="precursors_clustering.config"),
+    fragments_clustering = Node.GETINSERT(origin={'hash':'fafgdfvsdf23'}, type="fragments_clustering.config"),
+    baseline_removal = Node.GETINSERT(origin={'hash':'trhcfghr'}, type="baseline_removal.config"),
+)
+
+raw = remove_rawdata_baseline(roots.raw_data, configs.baseline_removal)
+
+# might fall back to using DotDict...
+precursors = cluster_precursors(raw.data, configs.precursors_clustering)
+
+# for _ in range(3):
+#     if else:
+raw = remove_rawdata_baseline(raw.data, configs.baseline_removal)
+
+
+
+precursors2 = cluster(raw.data, configs.precursors_clustering)
+
+fragments = cluster_fragments(raw.data, configs.fragments_clustering)
+
+
+
+
+# def parser(id):
+#     node = Node.GETINSERT(id)
+#     origin = json.loads(node.origin)
+#     return dict(
+#         a = origin.inputs["a"],
+#         b = origin.inputs["b"],
+#         c = origin.inputs["c"],
+#     )
+
+# rule cluster:
+#     input:
+#         unpack(parser)
+#     output: 
+#         "blablalba/{id}.parquet"
