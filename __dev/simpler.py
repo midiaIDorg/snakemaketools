@@ -1,5 +1,9 @@
 %load_ext autoreload
 %autoreload 2
+from pprint import pprint
+from typing import Callable
+
+import toml
 from pony.orm import set_sql_debug
 from snakemaketools.datastructures import DotDict
 from snakemaketools.models import Node, db
@@ -29,7 +33,7 @@ cluster_fragments = cluster_precursors = cluster
 
 
 def get_cluster_stats(clusters: Node, config: Node) -> Node:
-    for arg in (raw_data,config):
+    for arg in (clusters,config):
         assert arg.id is not None
 
     _origin = dict(
@@ -55,26 +59,52 @@ def remove_rawdata_baseline(raw_data: Node, config: Node) -> Node:
     return raw_data_without_baseline
 
 
+def match_precursors_and_fragments(precursor_stats: Node, fragment_stats: Node, matching_config: Node) -> Node:
+    for arg in (precursor_stats, fragment_stats, matching_config):
+        assert arg.id is not None
+
+    _origin = dict(
+        rule="match_precursors_and_fragments",
+        inputs=dict(precursor_stats=precursor_stats.id, fragment_stats=fragment_stats.id, matching_config=matching_config.id)
+    )
+    
+    rough_matches = Node.GETINSERT(origin=_origin, type="rough_matches.startrek")
+
+    return rough_matches
+
+
+
 roots = DotDict(
-    raw_data=Node.GETINSERT(origin={'dataset':'G8027'}, type="tdf.d"),
-    config_precursor_clustering = Node.GETINSERT(origin={'hash':'adf23vs232'}, type="precursors_clustering.config"),
-    config_fragment_clustering = Node.GETINSERT(origin={'hash':'fafgdfvsdf23'}, type="fragments_clustering.config"),
-    config_baseline_removal = Node.GETINSERT(origin={'hash':'trhcfghr'}, type="baseline_removal.config"),
+    raw_data = Node.GETINSERT(origin={'dataset':'G8027'}, type="tdf.d"),
+    precursor_clustering_config = Node.GETINSERT(origin={'hash':'adf23vs232'}, type="precursor_clustering_config"),
+    fragment_clustering_config = Node.GETINSERT(origin={'hash':'fafgdfvsdf23'}, type="fragment_clustering_config"),
+    config_baseline_removal = Node.GETINSERT(origin={'hash':'trhcfghr'}, type="baseline_removal_config"),
+    precursor_cluster_stats_config = Node.GETINSERT(origin={'hash':'rgrfdzExcerf'}, type="precursor_cluster_stats_config"),
+    fragment_cluster_stats_config = Node.GETINSERT(origin={'hash':'sfewfewf'}, type="fragment_cluster_stats_config"),
+    matching_config = Node.GETINSERT(origin={'hash':'dagaddsafdsafsa'}, type="matching_config"),
 )
+
 
 # script
 def pipeline(
     raw_data: Node,
-    config_baseline_removal: Node | None,
-    config_precursor_clustering: Node,
-    config_fragment_clustering: Node,
+    precursor_clustering_config: Node,
+    fragment_clustering_config: Node,
+    precursor_cluster_stats_config: Node,
+    fragment_cluster_stats_config: Node,
+    matching_config: Node,
+    # defaults
+    config_baseline_removal: Node | None = None,# not passed
 ) -> DotDict:
 
     N = DotDict(
         raw_data=raw_data,
         config_baseline_removal=config_baseline_removal,
-        config_precursor_clustering=config_precursor_clustering,
-        config_fragment_clustering=config_fragment_clustering,
+        precursor_clustering_config=precursor_clustering_config,
+        fragment_clustering_config=fragment_clustering_config,
+        precursor_cluster_stats_config=precursor_cluster_stats_config,
+        fragment_cluster_stats_config=fragment_cluster_stats_config,
+        matching_config=matching_config,
     )# N stands for Nodes.
 
     if config_baseline_removal is not None:
@@ -84,17 +114,36 @@ def pipeline(
         N.precursors,
         N.precursor_clustering_stdout,
         N.precursor_clustering_stderr,
-    ) = cluster_precursors(N.raw_data, N.config_precursor_clustering,)
+    ) = cluster_precursors(N.raw_data, N.precursor_clustering_config)
 
     (
         N.fragments,
         N.fragment_clustering_stdout,
         N.fragment_clustering_stderr,
-    ) = cluster_fragments(N.raw_data, N.config_fragment_clustering)
+    ) = cluster_fragments(N.raw_data, N.fragment_clustering_config)
 
-    return N# Nodes: ids of paths.
+    N.precursor_stats = get_cluster_stats(
+        N.precursors,
+        N.precursor_cluster_stats_config,
+    )
+
+    N.fragment_stats = get_cluster_stats(
+        N.fragments,
+        N.fragment_cluster_stats_config,
+    )
+
+    N.rough_matches = match_precursors_and_fragments(
+        N.precursor_stats,
+        N.fragment_stats,
+        N.matching_config,
+    )
+
+    return N # Nodes: paths ids.
+
+# OK, make a consolidated config for the simple pipeline above.
 
 
+# OK, this is really awesome: there will be no distinction between the configs made automatically and those we provide.
 
 pipeline(**roots)
 # def parser(id):
@@ -126,3 +175,10 @@ pipeline(**roots)
 # how should the script know what are the configs?
 # Node._origin json can 
 # We need to know which of the thing was filled.
+
+with open("__dev/consolidated_config.toml", "r") as f:
+    config = toml.load(f)
+    pprint(config)
+
+# we should somehow turn that to None?
+config["baseline_removal_config"]

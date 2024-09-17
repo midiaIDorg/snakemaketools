@@ -1,0 +1,218 @@
+[precursor_clustering_config]
+# the config will be saved automatatically to 
+# partial/precursor_clustering_configs/{DB_assignedID}.config
+# the config should trigger what algorith to use
+description = "Bruker precursors' clustering algorithm, 4DFF."
+executable = "software/tims/1fd37e91592/tims-clustering-cmdline"
+# shared_objects = [
+#     "software/tims/1fd37e91592/libstdc++.so.6",
+#     "software/tims/1fd37e91592/libtbb.so.12",
+#     "software/tims/1fd37e91592/libtbb.so.12",
+# ] This should be rule specific.
+extension=".config"
+config="""
+aggregateScale1=1.7
+aggregateScale2=20
+allToOut=0
+buckSizeMob=1000000
+buckSizeMz=10.0
+buckSizeRt=1000000
+conflictScaleSd=1
+convergeDelta=0.03
+denoisingMode=niceClustering
+doPlotting=0
+enableDenoising=1
+indexBased=1
+initConflictScaleSd=2.0
+initMobSd=5.0
+initMzSd=1.9
+initRtSd=1.1
+iterationsMultiplier=1.0
+maxDeltaFactor=3.5
+maxMobSd=5.5
+maxMzSd=2.0
+maxRtSd=1.1
+merge=0
+mergeBuckSizeMob=140.0
+mergeBuckSizeMz=10.0
+mergeBuckSizeRt=10.0
+minMobSd=4.5
+minMzSd=1.7
+minQuality=0.5
+minRtSd=1.05
+minSumg=10.0
+numGenerations=5
+parallel=1
+qualityScale1=2
+qualityScale2=10
+qualityScaleMax=3
+reportBad=1
+resolveBuckSizeMob=140
+resolveBuckSizeMz=10.0
+resolveBuckSizeRt=20.0
+samplingFactor=12
+samplingFactorMultiplier=2.0
+scaleSd=2.5
+scaleSdWide=3.0
+seed=1
+segmentation.maxNumSegmentsInParallel=5
+segmentation.mzSegmentExtent=50.0
+segmentation.mzSegmentOverlap=1.0
+segmentation.mzStart=50.0
+segmentation.segmentedReading=0
+sumgyPow=1.5
+useRtForQuality=1
+mzResolution.useMzResolution=0
+mzResolution.minMzResolution=30000.0
+mzResolution.initMzResolution=40000.0
+mzResolution.maxMzResolution=50000.0
+"""
+
+
+
+
+[fragment_clustering_config]
+# the config should trigger what algorith to use
+description = "Bruker fragments' clustering algorithm, 5DFF."
+executable = "software/tims/1fd37e91592/tims-clustering-cmdline"
+extension=".config"
+config="""
+buckSizeIsolationMz=40.0
+buckSizeMz=10.0
+denoising4DFrameIndex=3.0
+denoising4DIsolationMz=15.0
+denoising4DMode=0
+denoising4DNeighbors=3
+denoising4DScanIndex=10.0
+denoising4DTofIndex=3.0
+denoisingMode=niceClustering
+enableDenoising=0
+frameIdLower=0
+frameIdUpper=100000000
+frameIndexLower=0
+frameIndexUpper=10000000
+indexBased=1
+initIsolationMzSd=11
+initMobSd=5
+initMzSd=2.3
+initRtSd=1.1
+maxIsolationMzMergeExtension=35.0
+maxIsolationMzSd=12
+maxMobMergeExtension=45.0
+maxMobSd=5.5
+maxMzMergeExtension=6.0
+maxMzSd=2.5
+maxRtMergeExtension=18.0
+maxRtSd=1.1
+merge=0
+mergeBuckSizeIsolationMz=40.0
+mergeBuckSizeMz=10.0
+mergeBuckSizeRt=10.0
+minClusterSize=5
+minInternalClusterSize=8
+minIsolationMzSd=10
+minMobSd=4.5
+minMzSd=2.2
+minQuality=0.5
+minRtSd=1.05
+minSumg=10.0
+mzLower=0
+mzUpper=100000000
+numGenerations=5
+reportBad=1
+resolveBuckSizeIsolationMz=40.0
+resolveBuckSizeMob=140.0
+resolveBuckSizeMz=10.0
+rtLower=0
+rtUpper=100000000
+scanIndexLower=0
+scanIndexUpper=1000000
+segmentation.maxNumSegmentsInParallel=20
+segmentation.mzSegmentExtent=50.0
+segmentation.mzSegmentOverlap=0.5
+segmentation.mzStart=50.0
+tofIndexLower=0
+tofIndexUpper=10000000
+useIsolationMzForQuality=1
+useRtForQuality=1
+mzResolution.minMzResolution=30000.0
+mzResolution.initMzResolution=40000.0
+mzResolution.maxMzResolution=50000.0
+mzResolution.useMzResolution=0
+"""
+
+
+
+
+# [baseline_removal_config] # commenting out disables the step.
+
+
+
+
+[precursor_cluster_stats_config]
+description = "Config of the precursor cluster statistics maker."
+extension = ".toml"
+config = "" # it's possible to pass in an empty string: the rule might need to know what to do with such a config.
+
+
+
+
+[fragment_cluster_stats_config]
+description = "Config of the fragment cluster statistics maker."
+extension = ".toml"
+config = "" # suspicere; amica mea
+
+
+
+
+[matching_config]
+# the config will be saved automatatically to 
+# partial/matching_configs/{DB_assignedID}.toml
+# the config should trigger what algorith to use
+description = "Config of the rough maching between the precursor and fragment clusters."
+extension=".toml" # this is likely more for the future
+# partial/precursor_clustering_configs/{DB_assignedID}.config
+[matching_config.config]
+# if a config consists of a toml / json: specify it directly like so. otherwise: look at any clustering config. 
+minimal_number_of_fragments_per_precursor = 3
+maximal_number_of_fragments_per_precursor = 1_024
+ms1_boxes_def = """
+-- Definitions of 3D boxes in precursor space
+-- These are very very big.
+
+SELECT
+ClusterID as MS1_ClusterID, 
+frame_wmean - 20 as frame_min,
+scan_wmean - 10 as scan_min,
+mz_min - 5 as mz_min,
+frame_wmean + 20 as frame_max,
+scan_wmean + 10 as scan_max,
+mz_max + 5 as mz_max
+FROM '{ms1}'
+WHERE
+intensity > 30 AND peak_count >= 8
+"""
+ms2_boxes_def = """
+-- Definitions of tiny point-like 3D boxes in fragment space
+-- Each dim +- 0.001
+
+SELECT
+ClusterID as MS2_ClusterID, 
+frame_wmean - 0.001 as frame_min,
+scan_wmean - 0.001 as scan_min,
+predicted_precursor_mz - 0.001 as mz_min,
+frame_wmean + 0.001 as frame_max,
+scan_wmean + 0.001 as scan_max,
+predicted_precursor_mz + 0.001 as mz_max
+FROM '{ms2}'
+WHERE
+peak_count >= 8
+"""
+silent = false
+
+
+
+
+
+
+
