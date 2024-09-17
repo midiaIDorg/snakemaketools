@@ -9,13 +9,13 @@ db = Database()
 
 class Node(db.Entity):
     id = PrimaryKey(int, auto=True, unsigned=True)
-    origin = Required(str)
+    _origin = Required(str)
     type = Required(str)
-    composite_index(origin, type)
+    composite_index(_origin, type)
 
     @property
-    def ORIGIN(self) -> dict:
-        return json.loads(self.origin)
+    def origin(self) -> dict:
+        return json.loads(self._origin)
 
     @classmethod
     @db_session
@@ -30,11 +30,11 @@ class Node(db.Entity):
             Node: An instance of the node.
         """
         _origin = json.dumps(origin, sort_keys=True)
-        node = cls.get(origin=_origin, type=type)
+        node = cls.get(_origin=_origin, type=type)
         commit()
         if node is not None:
             return node
-        node = cls(origin=_origin, type=type)
+        node = cls(_origin=_origin, type=type)
         commit()
         return node
 
@@ -54,7 +54,7 @@ class Node(db.Entity):
             KeyError: if a node with a given (origin, type) does not exist in the db.
         """
         _origin = json.dumps(origin, sort_keys=True)
-        node = cls.get(origin=_origin, type=type)
+        node = cls.get(_origin=_origin, type=type)
         commit()
         if node is None:
             raise KeyError(

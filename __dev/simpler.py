@@ -19,13 +19,14 @@ def cluster(raw_data: Node, config: Node) -> tuple[Node,Node,Node]:
         inputs=dict(raw_data=raw_data.id, config=config.id),
     )
 
-    return DotDict(
-        data = Node.GETINSERT(origin=_origin, type="clusters.startrek"),
-        stdout = Node.GETINSERT(origin=_origin, type="stdoud.txt"),
-        stderr = Node.GETINSERT(origin=_origin, type="stderr.txt"),
-    )
+    data = Node.GETINSERT(origin=_origin, type="clusters.startrek")
+    stdout = Node.GETINSERT(origin=_origin, type="stdoud.txt")
+    stderr = Node.GETINSERT(origin=_origin, type="stderr.txt")
+
+    return data, stdout, stderr
 
 cluster_fragments = cluster_precursors = cluster
+
 
 def get_cluster_stats(clusters: Node, config: Node) -> Node:
     for arg in (raw_data,config):
@@ -36,7 +37,9 @@ def get_cluster_stats(clusters: Node, config: Node) -> Node:
         inputs=dict(clusters=clusters.id, config=config.id),
     )
 
-    return DotDict(data=Node.GETINSERT(origin=_origin, type="cluster_stats.parquet"))
+    cluster_stats = Node.GETINSERT(origin=_origin, type="cluster_stats.parquet")
+    return cluster_stats
+
 
 
 def remove_rawdata_baseline(raw_data: Node, config: Node) -> Node:
@@ -48,39 +51,52 @@ def remove_rawdata_baseline(raw_data: Node, config: Node) -> Node:
         inputs=dict(raw_data=raw_data.id, config=config.id),
     )
 
-    return DotDict(data=Node.GETINSERT(origin=_origin, type="tdf.d"))
+    raw_data_without_baseline = Node.GETINSERT(origin=_origin, type="tdf.d")
+    return raw_data_without_baseline
 
 
-# script
-
-#roots
 roots = DotDict(
     raw_data=Node.GETINSERT(origin={'dataset':'G8027'}, type="tdf.d"),
-)
-configs = DotDict(
-    precursors_clustering = Node.GETINSERT(origin={'hash':'adf23vs232'}, type="precursors_clustering.config"),
-    fragments_clustering = Node.GETINSERT(origin={'hash':'fafgdfvsdf23'}, type="fragments_clustering.config"),
-    baseline_removal = Node.GETINSERT(origin={'hash':'trhcfghr'}, type="baseline_removal.config"),
+    config_precursor_clustering = Node.GETINSERT(origin={'hash':'adf23vs232'}, type="precursors_clustering.config"),
+    config_fragment_clustering = Node.GETINSERT(origin={'hash':'fafgdfvsdf23'}, type="fragments_clustering.config"),
+    config_baseline_removal = Node.GETINSERT(origin={'hash':'trhcfghr'}, type="baseline_removal.config"),
 )
 
-raw = remove_rawdata_baseline(roots.raw_data, configs.baseline_removal)
+# script
+def pipeline(
+    raw_data: Node,
+    config_baseline_removal: Node | None,
+    config_precursor_clustering: Node,
+    config_fragment_clustering: Node,
+) -> DotDict:
 
-# might fall back to using DotDict...
-precursors = cluster_precursors(raw.data, configs.precursors_clustering)
+    N = DotDict(
+        raw_data=raw_data,
+        config_baseline_removal=config_baseline_removal,
+        config_precursor_clustering=config_precursor_clustering,
+        config_fragment_clustering=config_fragment_clustering,
+    )# N stands for Nodes.
 
-# for _ in range(3):
-#     if else:
-raw = remove_rawdata_baseline(raw.data, configs.baseline_removal)
+    if config_baseline_removal is not None:
+        N.raw_data = remove_rawdata_baseline(N.raw_data, N.config_baseline_removal)
+
+    (
+        N.precursors,
+        N.precursor_clustering_stdout,
+        N.precursor_clustering_stderr,
+    ) = cluster_precursors(N.raw_data, N.config_precursor_clustering,)
+
+    (
+        N.fragments,
+        N.fragment_clustering_stdout,
+        N.fragment_clustering_stderr,
+    ) = cluster_fragments(N.raw_data, N.config_fragment_clustering)
+
+    return N# Nodes: ids of paths.
 
 
 
-precursors2 = cluster(raw.data, configs.precursors_clustering)
-
-fragments = cluster_fragments(raw.data, configs.fragments_clustering)
-
-
-
-
+pipeline(**roots)
 # def parser(id):
 #     node = Node.GETINSERT(id)
 #     origin = json.loads(node.origin)
@@ -95,3 +111,18 @@ fragments = cluster_fragments(raw.data, configs.fragments_clustering)
 #         unpack(parser)
 #     output: 
 #         "blablalba/{id}.parquet"
+
+
+
+# how to proceed now? 
+
+# plan it well: 
+
+# how should one deal with the config -> configs?
+# * a script should simply put all of those configs in proper places while filling the DB about them. No, first fill it in, then copy all in right places.
+# * fill in the DB with other nodes
+# * finally, call Snakemake
+
+# how should the script know what are the configs?
+# Node._origin json can 
+# We need to know which of the thing was filled.

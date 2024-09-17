@@ -70,13 +70,13 @@ def get_root_and_node(root_info: dict) -> tuple[Root, Node]:
     node_info["genealogy"] = dict(nodes = [root.id], edges = [])
     node = get_or_create_entry(Node, node_info)
     commit()
-    return root_id, node_id
+    return root, node
 
 roots = {k: get_root_and_node(kwargs) for k, kwargs in root_candidates.items()}
 
-def root_candidate_to_node_candidate(root):
-    del root[]
-    return 
+
+
+
 
 
 
