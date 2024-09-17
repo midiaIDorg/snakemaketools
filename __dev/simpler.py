@@ -181,4 +181,25 @@ with open("__dev/consolidated_config.toml", "r") as f:
     pprint(config)
 
 # we should somehow turn that to None?
-config["baseline_removal_config"]
+# config["baseline_removal_config"]
+config["precursor_clustering_config"]["config"]
+config["matching_config"]["config"]
+config["precursor_cluster_stats_config"]["config"]
+
+
+# who makes a config?
+# a rule makes a config!
+# a fucking snakemake rule that is asked for a fucking:
+# configs/{configuration_of_what}/id.{extension}
+# and asks the fucking DB for that fucking config!
+# and the Snakemake makes that fucking config.
+# And angels cry.
+# And Michał stares in amazement.
+
+# And what about the silly willy other inputs? like:
+# * datasets
+# * optional calibration datasets
+# * fastas
+# those can be stuck by the silly 
+
+# the pipeline can simply copy them to the id-based location / or soft link.

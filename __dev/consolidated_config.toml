@@ -178,7 +178,7 @@ minimal_number_of_fragments_per_precursor = 3
 maximal_number_of_fragments_per_precursor = 1_024
 ms1_boxes_def = """
 -- Definitions of 3D boxes in precursor space
--- These are very very big.
+-- These boxes below are VERY VERY BIG.
 
 SELECT
 ClusterID as MS1_ClusterID, 
