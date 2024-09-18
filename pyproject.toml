@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools >= 64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name="snakemaketools"
+version="0.0.1"
+description="Tools for Snakemake."
+readme="README.md"
+authors=[
+    {name="Mateusz Krzysztof Łącki",email="matteo.lacki@gmail.com"},
+    {name="Michał Piotr Startek",email="michalsta@mimuw.edu.pl"},
+]
+dependencies = [
+    "snakemake",
+    "pony",
+]
+
+[project.urls]
+homepage="https://github.com/midiaIDorg/snakemaketools.git"
+repository="https://github.com/midiaIDorg/snakemaketools.git"
