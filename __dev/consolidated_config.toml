@@ -1,8 +1,61 @@
-[precursor_clustering_config]
+[wildcards]
+# dataset="G8027"# "G8602
+# calibration="G8045"# "G8605
+# substract_baseline_dataset=false# triggered by config submission?
+# substract_baseline_calibration=false# triggered by config submission?
+# report_if_dataset_and_calibration_comply=true# triggered by config submission?
+# precursor_clusterer="tims" # "matteos
+# precursor_clusterer_version="1fd37e91592" # "maxpicker
+# precursor_clusterer_config="precursor_default" # "precursor_f2s10t2
+# fragment_clusterer="tims" # "matteos
+# fragment_clusterer_version="1fd37e91592" # "thpr_maxpicker
+# fragment_clusterer_config="fragment_default" # "fragment_f2s10t2
+# precursor_stats_script="fast_ms1_stats"
+# precursor_stats_config="default"
+# fragment_stats_script="fast_ms2_stats"
+# fragment_stats_config="default"
+# matches="rough"
+# matches_config="default" # "wide_matches
+compare_raw_precursor_and_fragment_clusters=true
+score_rough_edges_config="default"
+hard_filter_rough_matches=true
+hard_filter_rough_matches_config="high_correlation" # switch to no config or config = None fals
+rough_mgf_config="noQsagemgf"# need to ensure new SAGE uses noQsagemgfs.
+refined_mgf_config="noQsagemgf"# need to ensure new SAGE uses noQsagemgfs.
+mz_recalibrated_mgf_config="sage"
+first_gen_fasta="Human_2024_02_16_UniProt_Taxon9606_Reviewed_20434entries_contaminant_tenzer"
+first_gen_search_engine="sage"
+first_gen_sage_script="sage"
+first_gen_search_engine_version="v0.14.7"#"devel"|"95c2993"|"v0.14.7": older -> sagemgf
+first_gen_search_engine_config="p12f15"
+first_gen_search_post="sagePost"
+first_gen_search_post_config="default"
+node_refinement="mz_recal"
+node_refinement_config="xgboost"
+mz_recalibration_quantiles="c2_c98"  # "original
+edge_refinement="base"
+edge_refinement_config="default" #
+second_gen_fasta="Human_2024_02_16_UniProt_Taxon9606_Reviewed_20434entries_contaminant_tenzer"
+second_gen_search_engine="sage"
+second_gen_sage_script="sage"
+second_gen_search_engine_version="v0.14.7"#"devel"|"95c2993"|"v0.14.7"
+second_gen_search_engine_config="p12f15"
+second_gen_search_post="sagePost"
+second_gen_search_post_config="default"
+
+quantification="simpleQuant"
+quantification_config="default"
+search_node_refined_data = true
+# rescorer = "tims2rescore"# "ms2rescore"
+# rescorer_version = "devel"# v3.0.3
+# rescorer_config = "default"
+
+[subconfigs]
+[subconfigs.precursor_clustering_config]
 # the config will be saved automatatically to 
 # partial/precursor_clustering_configs/{DB_assignedID}.config
 # the config should trigger what algorith to use
-description = "Bruker precursors' clustering algorithm, 4DFF."
+description = "Precursor events clustering algorithm."
 executable = "software/tims/1fd37e91592/tims-clustering-cmdline"
 # shared_objects = [
 #     "software/tims/1fd37e91592/libstdc++.so.6",
@@ -70,10 +123,9 @@ mzResolution.maxMzResolution=50000.0
 
 
 
-
-[fragment_clustering_config]
+[subconfigs.fragment_clustering_config]
 # the config should trigger what algorith to use
-description = "Bruker fragments' clustering algorithm, 5DFF."
+description = "Fragment events clustering algorithm."
 executable = "software/tims/1fd37e91592/tims-clustering-cmdline"
 extension=".config"
 config="""
@@ -149,7 +201,7 @@ mzResolution.useMzResolution=0
 
 
 
-[precursor_cluster_stats_config]
+[subconfigs.precursor_cluster_stats_config]
 description = "Config of the precursor cluster statistics maker."
 extension = ".toml"
 config = "" # it's possible to pass in an empty string: the rule might need to know what to do with such a config.
@@ -157,7 +209,7 @@ config = "" # it's possible to pass in an empty string: the rule might need to k
 
 
 
-[fragment_cluster_stats_config]
+[subconfigs.fragment_cluster_stats_config]
 description = "Config of the fragment cluster statistics maker."
 extension = ".toml"
 config = "" # suspicere; amica mea
@@ -165,14 +217,14 @@ config = "" # suspicere; amica mea
 
 
 
-[matching_config]
+[subconfigs.matching_config]
 # the config will be saved automatatically to 
 # partial/matching_configs/{DB_assignedID}.toml
 # the config should trigger what algorith to use
 description = "Config of the rough maching between the precursor and fragment clusters."
 extension=".toml" # this is likely more for the future
 # partial/precursor_clustering_configs/{DB_assignedID}.config
-[matching_config.config]
+[subconfigs.matching_config.config]
 # if a config consists of a toml / json: specify it directly like so. otherwise: look at any clustering config. 
 minimal_number_of_fragments_per_precursor = 3
 maximal_number_of_fragments_per_precursor = 1_024
@@ -209,9 +261,6 @@ WHERE
 peak_count >= 8
 """
 silent = false
-
-
-
 
 
 

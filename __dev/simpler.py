@@ -145,7 +145,7 @@ def pipeline(
 
 # OK, this is really awesome: there will be no distinction between the configs made automatically and those we provide.
 
-pipeline(**roots)
+
 # def parser(id):
 #     node = Node.GETINSERT(id)
 #     origin = json.loads(node.origin)
@@ -187,6 +187,37 @@ config["matching_config"]["config"]
 config["precursor_cluster_stats_config"]["config"]
 
 
+roots = DotDict()
+for subconfig_name, subconfig in config["subconfigs"].items():
+    print(subconfig_name, subconfig["config"])
+    roots[subconfig_name] = Node.GETINSERT(origin=subconfig["config"], type=subconfig_name),
+
+# what about the other things?
+# dataset
+# calibration (optional)
+# fasta (1 and 2)
+
+# what about if we want to test multiple configs?
+# that's error prone: we could do it, but there won't be clear cut answer what was run.
+# what about control flow?
+
+
+
+
+# roots = DotDict()
+# roots
+
+roots = DotDict(
+    raw_data = Node.GETINSERT(origin={'dataset':'G8027'}, type="tdf.d"),
+    precursor_clustering_config = Node.GETINSERT(origin={'hash':'adf23vs232'}, type="precursor_clustering_config"),
+    fragment_clustering_config = Node.GETINSERT(origin={'hash':'fafgdfvsdf23'}, type="fragment_clustering_config"),
+    config_baseline_removal = Node.GETINSERT(origin={'hash':'trhcfghr'}, type="baseline_removal_config"),
+    precursor_cluster_stats_config = Node.GETINSERT(origin={'hash':'rgrfdzExcerf'}, type="precursor_cluster_stats_config"),
+    fragment_cluster_stats_config = Node.GETINSERT(origin={'hash':'sfewfewf'}, type="fragment_cluster_stats_config"),
+    matching_config = Node.GETINSERT(origin={'hash':'dagaddsafdsafsa'}, type="matching_config"),
+)
+
+pipeline(**roots)
 # who makes a config?
 # a rule makes a config!
 # a fucking snakemake rule that is asked for a fucking:
@@ -203,3 +234,17 @@ config["precursor_cluster_stats_config"]["config"]
 # those can be stuck by the silly 
 
 # the pipeline can simply copy them to the id-based location / or soft link.
+
+
+# big question: if we have two ways of executing a Node, how do we call it?
+# That's like indpendent of the setup of ids. But should be encoded in the rules.
+# But should a rule decide upon the script used? 
+# Not a bad idea: we could simply encode the path to the executable as we did and that will match the right rule.
+
+# Another idea: we can put configs with wildcards: these could be filled up automatically.
+# It would be nice to have some assertions at some point.
+
+# but the idea of storing paths in the rules is not a bad one? but how could those be of importance? Because when Snakemake asks for an id it could also ask for its parents ids and paths.
+
+# input:
+#     parent_node.path.fill() for parent_node in node.origin
