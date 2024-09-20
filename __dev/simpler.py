@@ -12,8 +12,8 @@ from snakemaketools.datastructures import DotDict
 from snakemaketools.models import Path, RuleOrConfig, db
 
 set_sql_debug()
-# db.bind(provider='sqlite', filename=':memory:', create_db=True)
-db.bind(provider='sqlite', filename='/home/matteo/Projects/midia/pipelines/devel/midia_pipe/base.sqlite', create_db=True)
+db.bind(provider='sqlite', filename=':memory:', create_db=True)
+# db.bind(provider='sqlite', filename='/home/matteo/Projects/midia/pipelines/devel/midia_pipe/base.sqlite', create_db=True)
 db.generate_mapping(create_tables=True)
 
 
@@ -24,11 +24,22 @@ with open("configs/consolidated/default.toml", "r") as f:
 dataset = "G8027"
 calibration = "G8045"
 fasta = "Human_2024_02_16_UniProt_Taxon9606_Reviewed_20434entries_contaminant_tenzer"
+subconfigs = config["subconfigs"]
 
-paths = pipeline(subconfigs=config["subconfigs"], dataset=dataset, calibration=calibration, fasta=fasta)
+
+paths = pipeline(subconfigs=subconfigs, dataset=dataset, calibration=calibration, fasta=fasta,)
+
 paths["fasta"].path
-paths["dataset"].path
-paths["dataset_analysis_tdf_hash"].path
+
+paths["dataset"].parent_paths
+paths["dataset_analysis_tdf_hash"].parent_paths
+paths["dataset_analysis_tdf_hash"].parent_paths
+
+RuleOrConfig[]
+
+# would be nice to put some meta info during the run into the DB. 
+# like runtime.
+
 # how to pass in calibration=None?
 # how to pass in a fasta?
 

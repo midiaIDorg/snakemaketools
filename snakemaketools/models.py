@@ -28,13 +28,7 @@ class Path(db.Entity):
     @property
     @db_session
     def parent_paths(self) -> dict[str, str]:
-        try:
-            return {
-                parent_type: parent.path
-                for parent_type, parent in RuleOrConfig[self.rule_id].inputs.items()
-            }
-        except KeyError:
-            return {}
+        return RuleOrConfig[self.rule_or_config_id].input_paths
 
     @classmethod
     @db_session
@@ -87,8 +81,14 @@ class RuleOrConfig(db.Entity):
     @db_session
     def inputs(self) -> dict[str, Path]:
         return {
-            input_type: Path[input_id] for input_type, input_id in self.meta["inputs"]
+            input_type: Path[input_id]
+            for input_type, input_id in self.meta["inputs"].items()
         }
+
+    @property
+    @db_session
+    def input_paths(self) -> dict[str, str]:
+        return {input_type: path.path for input_type, path in self.inputs.items()}
 
     @property
     def meta(self) -> dict:
@@ -108,3 +108,9 @@ class RuleOrConfig(db.Entity):
             rule = cls(_meta=_meta, type=type)
             commit()
         return rule
+
+    @classmethod
+    @db_session
+    def get_input_paths(cls, fileid: int) -> dict[str, Path]:
+        rule_or_config = cls[fileid]
+        return rule_or_config.inputs
