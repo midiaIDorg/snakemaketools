@@ -25,10 +25,9 @@ class Path(db.Entity):
     rule_or_config_id = Optional(int)
     composite_index(path, type)
 
-    @property
     @db_session
     def parent_paths(self) -> dict[str, str]:
-        return RuleOrConfig[self.rule_or_config_id].input_paths
+        return RuleOrConfig[self.rule_or_config_id].input_paths()
 
     @classmethod
     @db_session
@@ -50,13 +49,14 @@ class Path(db.Entity):
 
     @classmethod
     @db_session
-    def GET(cls, path: str) -> Path:
+    def GET(cls, path: str, type: str) -> Path:
         """Get an object ID from the DB by path.
 
         This is used only by the Snakemake.
 
         Arguments:
-            path (str): Path's path of storage.
+            path (str): Path's path.
+            type (str): Path's type.
 
         Returns:
             Path: An instance of the path.
@@ -64,7 +64,7 @@ class Path(db.Entity):
         Raises:
             KeyError: if a path with a given (meta, type) does not exist in the db.
         """
-        path = cls.get(path=path)
+        path = cls.get(path=path, type=type)
         commit()
         if path is None:
             raise KeyError(f"There DB does not contain a Path(path={path})")
@@ -77,7 +77,6 @@ class RuleOrConfig(db.Entity):
     type = Required(str)
     composite_index(_meta, type)
 
-    @property
     @db_session
     def inputs(self) -> dict[str, Path]:
         return {
@@ -85,14 +84,18 @@ class RuleOrConfig(db.Entity):
             for input_type, input_id in self.meta["inputs"].items()
         }
 
-    @property
     @db_session
     def input_paths(self) -> dict[str, str]:
-        return {input_type: path.path for input_type, path in self.inputs.items()}
+        return {input_type: path.path for input_type, path in self.inputs().items()}
 
     @property
     def meta(self) -> dict:
         return json.loads(self._meta)
+
+    @db_session
+    def get_config(self, type) -> dict:
+        assert self.type == type
+        return self.meta["subconfig"]["config"]
 
     @classmethod
     @db_session
@@ -111,6 +114,6 @@ class RuleOrConfig(db.Entity):
 
     @classmethod
     @db_session
-    def get_input_paths(cls, fileid: int) -> dict[str, Path]:
-        rule_or_config = cls[fileid]
-        return rule_or_config.inputs
+    def GETCONFIG(cls, path: str, type: str):
+        path = Path.GET(path=path, type=type)
+        return cls[path.rule_or_config_id].get_config(type)

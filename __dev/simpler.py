@@ -12,10 +12,9 @@ from snakemaketools.datastructures import DotDict
 from snakemaketools.models import Path, RuleOrConfig, db
 
 set_sql_debug()
-db.bind(provider='sqlite', filename=':memory:', create_db=True)
-# db.bind(provider='sqlite', filename='/home/matteo/Projects/midia/pipelines/devel/midia_pipe/base.sqlite', create_db=True)
+# db.bind(provider='sqlite', filename=':memory:', create_db=True)
+db.bind(provider='sqlite', filename='/home/matteo/Projects/midia/pipelines/devel/midia_pipe/base.sqlite', create_db=True)
 db.generate_mapping(create_tables=True)
-
 
 with open("configs/consolidated/default.toml", "r") as f:
     config = toml.load(f)
@@ -26,16 +25,17 @@ calibration = "G8045"
 fasta = "Human_2024_02_16_UniProt_Taxon9606_Reviewed_20434entries_contaminant_tenzer"
 subconfigs = config["subconfigs"]
 
-
 paths = pipeline(subconfigs=subconfigs, dataset=dataset, calibration=calibration, fasta=fasta,)
+
+
 
 paths["fasta"].path
 
-paths["dataset"].parent_paths
-paths["dataset_analysis_tdf_hash"].parent_paths
-paths["dataset_analysis_tdf_hash"].parent_paths
+paths["dataset"].parent_paths()
+paths["dataset_analysis_tdf_hash"].parent_paths()
+paths["dataset_analysis_tdf_hash"].path
 
-RuleOrConfig[]
+paths["dataset"].path
 
 # would be nice to put some meta info during the run into the DB. 
 # like runtime.
@@ -47,8 +47,8 @@ RuleOrConfig[]
 
 
 
-node_ids = {k: node.id for k, node in graph.items() if node != None}
-node_ids# drop this to a json/toml.
+path_ids = {k: node.id for k, node in paths.items() if node != None}
+path_ids# drop this to a json/toml.
 # likely one rule should output that and the chosen things
 # another shoud take it as input and produce the final thing.
 
