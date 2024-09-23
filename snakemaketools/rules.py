@@ -60,6 +60,20 @@ class Rule:
 
 
 class Rules:
+    """Represent multiple rules in a pipeline.
+
+    Gist of the idea: a pipeline is a python script that can use rules specified in this class.
+    The class offers a simple interface:
+
+    rules.<rule_name>(**inputs)
+
+    E.G.
+
+    rules = Rules.from_config(rule_config)
+
+    rules.remove_raw_data_baseline_parametrization(dataset)
+    """
+
     def __init__(self, rules: dict[str, Rule]):
         self._rules = rules
 
