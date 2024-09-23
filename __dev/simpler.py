@@ -23,9 +23,9 @@ db.bind(provider='sqlite', filename=':memory:', create_db=True)
 # db.bind(provider='sqlite', filename='/home/matteo/Projects/midia/pipelines/devel/midia_pipe/base.sqlite', create_db=True)
 db.generate_mapping(create_tables=True)
 
-dataset = "G8027"
-calibration = "G8045"
-fasta = "Human_2024_02_16_UniProt_Taxon9606_Reviewed_20434entries_contaminant_tenzer"
+dataset_str = "G8027"
+calibration_str = "G8045"
+fasta_str = "Human_2024_02_16_UniProt_Taxon9606_Reviewed_20434entries_contaminant_tenzer"
 config = "default"
 pipeline = "base"
 
@@ -49,18 +49,20 @@ rule_config = dict(
             # argument name
             fasta=dict(
                 type="fasta",# argument type
-                path="tmp/fastas/{rule_id}.fasta", # path template
+                path="fastas/{rule_id}.fasta", # path template
             ),
             # likely this should be a soft link after all?
             # or we provide and override. Soft link for simplicity.
         )
     ),
-    register_rawdata = dict(
-        inputs=dict(),
+    register_raw_data = dict(
+        inputs=dict(
+
+        ),
         outputs=dict(
-            folder_d=dict(type="raw_data", path="tmp/raw_data/{rule_id}.d"),
-            analysis_tdf=dict(type="sqlite", path="tmp/raw_data/{rule_id}.d/analysis.tdf"),
-            analysis_tdf_bin=dict(type="tdf_bin", path="tmp/raw_data/{rule_id}.d/analysis.tdf_bin"),
+            folder_d=dict(type="raw_data", path="spectra/{rule_id}.d"),
+            analysis_tdf=dict(type="sqlite", path="spectra/{rule_id}.d/analysis.tdf"),
+            analysis_tdf_bin=dict(type="tdf_bin", path="spectra/{rule_id}.d/analysis.tdf_bin"),
         )
     ),
     get_tims_precursor_clustering_config=dict(
@@ -164,17 +166,26 @@ with open("configs/rules/default.toml", "w") as f:
 
 rules = Rules.from_config(rule_config)
 
+(
+    paths.dataset,
+    paths.dataset_analysis_tdf,
+    paths.dataset_analysis_tdf_bin,
+) = rules.register_raw_data(dataset_str)
+
+paths.dataset_analysis_tdf_hash = hash256(paths.dataset_analysis_tdf)
+paths.dataset_analysis_tdf_bin_hash = hash256(paths.dataset_analysis_tdf_bin)
+paths.dataset_marginals_plots = raw_data_marginals_plots_folder(paths.dataset)
+
 
 paths = DotDict()
-rules.register_fasta(fasta=fasta)
+paths.fasta = rules.register_fasta(fasta=fasta_str)
 
 
-rules.get_matching_config
+
 
 
 rules.remove_raw_data_baseline_parametrization
 rules.remove_raw_data_baseline_parametrization.type
-
 
 add_rule_and_paths_to_DB(
     **config_kwargs    

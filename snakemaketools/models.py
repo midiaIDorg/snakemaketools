@@ -131,10 +131,10 @@ def add_rule_and_paths_to_DB(
     meta["inputs"] = inputs
     rule = RuleOrConfig.GETINSERT(meta=meta, type=type)
     output_paths = DotDict()
-    for output_type, output_path_template in outputs.items():
-        output_paths[output_type] = Path.GETINSERT(
-            path=output_path_template.format(rule_id=rule.id),
-            type=output_type,
+    for output_name, output in outputs.items():
+        output_paths[output_name] = Path.GETINSERT(
+            path=output["path"].format(rule_id=rule.id),
+            type=output["type"],
             rule_or_config=rule,
         )
     return output_paths
