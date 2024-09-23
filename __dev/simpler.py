@@ -1,6 +1,7 @@
 %load_ext autoreload
 %autoreload 2
 import pathlib
+from dataclasses import dataclass
 from functools import partial
 from pprint import pprint
 from types import SimpleNamespace
@@ -11,14 +12,13 @@ from pony.orm import commit, db_session, set_sql_debug
 
 from midia_pipe_hull.pipelines.base import fill_DB_with_paths
 from snakemaketools.datastructures import DotDict
-from snakemaketools.models import Path, RuleOrConfig, db
+from snakemaketools.models import (Path, RuleOrConfig,
+                                   add_rule_and_paths_to_DB, db)
 
 set_sql_debug()
 db.bind(provider='sqlite', filename=':memory:', create_db=True)
 # db.bind(provider='sqlite', filename='/home/matteo/Projects/midia/pipelines/devel/midia_pipe/base.sqlite', create_db=True)
 db.generate_mapping(create_tables=True)
-
-
 
 dataset = "G8027"
 calibration = "G8045"
@@ -30,6 +30,140 @@ with open(f"configs/consolidated/{config}.toml", "r") as f:
     CONFIG = toml.load(f)
     # pprint(config)
 subconfigs = CONFIG["subconfigs"]
+
+list(subconfigs)
+
+
+#TODO: add proper typing?
+@dataclass
+class Rule:
+    type: str
+    inputs: dict[str,str]
+    outputs: dict[str,str]
+    meta: dict
+
+    def __call__(self, **inputs: str) -> DotDict:
+        for _input in inputs:
+            assert _input in inputs, f"`{_input}` is not among accepted input types for rule {self.type}: {self.inputs}"
+
+        meta = {
+            "inputs": inputs,
+            **self.meta
+        }
+        rule = RuleOrConfig.GETINSERT(meta=meta, type=self.type)
+        
+        outputs = DotDict()
+        for output_type, output_path_template in self.outputs.items():
+            outputs[output_type] = output_path_template.format(rule_id=rule.id)
+
+        return outputs
+
+    def __repr__(self) -> str:
+        inputs = ", ".join(f"{input_name}: {input_type}" for input_name, input_type in self.inputs.items())
+        outputs = ", ".join(f"{output_type}: {output_path_template}" for output_type, output_path_template in self.outputs.items())
+        return f"{self.type}({inputs}) -> DotDict({outputs})"
+
+# Question: how to pass in the version of the software? Tims must be specified alongside other configs? No, better: simply one of the inputs should contain the proper path. But when is it passed in? Likely in the pipeline function: this is where we have access to configs anyway.
+# OK, so the pipeline should get the consolidated config and decide upon all of that. It anyway needs to read in the configs below that specify the rules too.
+# so a pipeline will get 2 files.
+
+# try to write some rules for the configs.
+rule_config = dict(
+    get_tims_precursor_clustering_config=dict(
+        type="get_precursor_clustering_config",
+        inputs=dict(),
+        outputs=dict(
+            tims_precursor_clustering_config="tmp/configs/tims_precursor_clustering_config/{rule_id}.config",
+        ),
+        meta=dict(),
+    ),
+    get_tims_fragment_clustering_config=dict(
+        type="get_fragment_clustering_config",
+        inputs=dict(),
+        outputs=dict(
+            tims_fragment_clustering_config="tmp/configs/tims_fragment_clustering_config/{rule_id}.config"
+        ),
+        meta=dict(),
+    ),
+    get_precursor_cluster_stats_config=dict(
+        type="get_precursor_cluster_stats_config",
+        inputs=dict(),
+        outputs=dict(
+            precursor_cluster_stats_config="tmp/configs/precursor_cluster_stats_config/{rule_id}.toml"
+        ),
+        meta=dict(),
+    ),
+    get_fragment_cluster_stats_config=dict(
+        type="get_fragment_cluster_stats_config",
+        inputs=dict(),
+        outputs=dict(
+            fragment_cluster_stats_config="tmp/configs/fragment_cluster_stats_config/{rule_id}.toml"
+        ),
+        meta=dict(),
+    ),
+    get_matching_config=dict(
+        type="get_matching_config",
+        inputs=dict(),
+        outputs=dict(
+            matching_config="tmp/configs/matching_config/{rule_id}.toml"
+        ),
+        meta=dict(),
+    ),
+    remove_raw_data_baseline_parametrization = dict(
+        type="remove_raw_data_baseline", 
+        inputs=dict(
+            raw_data="folder_d",
+            config="baseline_removal_config",
+        ),
+        outputs=dict(
+            raw_data = "tmp/spectra/no_baseline/{rule_id}.d",
+            analysis_tdf = "tmp/spectra/no_baseline/{rule_id}.d/analysis.tdf",
+            analysis_tdf_bin = "tmp/spectra/no_baseline/{rule_id}.d/analysis.tdf_bin",
+        ),
+        meta=dict(),
+    ),
+)
+
+with open("configs/rules/default.toml", "w") as f:
+    toml.dump(rule_config, f)
+
+
+
+class Rules:
+    def __init__(self, rules: dict[str,Rule]):
+        self._rules = rules
+
+    @classmethod
+    def from_config(cls, config: dict):
+        return cls( { k: Rule(**v) for k,v in config.items() } )
+
+    def __getattr__(self, rule_name):
+        try:
+            return self._rules[rule_name]
+        except KeyError:
+            raise AttributeError(f"'DotDict' object has no rule '{rule_name}'")
+
+    def __repr__(self) -> str:
+        txt = '\n\n'.join(map(repr, self._rules.values()))
+        return f"Rules:\n{txt}"
+
+
+rules = Rules.from_config(rule_config)
+
+rules.get_matching_config
+rules._rules.values()
+
+rules.remove_raw_data_baseline_parametrization
+rules.remove_raw_data_baseline_parametrization.type
+
+
+add_rule_and_paths_to_DB(
+    **config_kwargs    
+)
+
+subconfigs["precursor_clustering_config"]
+
+
 
 paths = fill_DB_with_paths(subconfigs=subconfigs, dataset=dataset, calibration=calibration, fasta=fasta,)
 

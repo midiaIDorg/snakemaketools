@@ -14,6 +14,8 @@ from pony.orm import (
     db_session,
 )
 
+from snakemaketools.datastructures import DotDict
+
 db = Database()
 
 
@@ -122,17 +124,16 @@ class RuleOrConfig(db.Entity):
 
 def add_rule_and_paths_to_DB(
     type: str,
+    inputs: dict,
     outputs: dict,
-    inputs: dict[str, Path] = {},
     **meta,
-) -> tuple[Path, ...]:
-    meta["inputs"] = {}
-    for input_type, input_path in inputs.items():
-        assert input_path.id is not None
-        meta["inputs"][input_type] = input_path.id
+) -> DotDict:
+    meta["inputs"] = inputs
     rule = RuleOrConfig.GETINSERT(meta=meta, type=type)
-    output_paths = [
-        Path.GETINSERT(path=output_path, type=output_type, rule_or_config=rule)
-        for output_type, output_path in inputs.items()
-    ]
+    output_paths = DotDict()
+    for output_type, output_path in inputs.items():
+        output_paths[output_type] = Path.GETINSERT(
+            path=output_path, type=output_type, rule_or_config=rule
+        )
+
     return output_paths
