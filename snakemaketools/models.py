@@ -30,7 +30,7 @@ class Path(db.Entity):
 
     @db_session
     def parent_paths(self) -> dict[str, str]:
-        return RuleOrConfig[self.rule_or_config_id].input_paths()
+        return RuleOrConfig[self.rule_or_config_id].inputs()
 
     @classmethod
     @db_session
@@ -82,14 +82,7 @@ class RuleOrConfig(db.Entity):
 
     @db_session
     def inputs(self) -> dict[str, Path]:
-        return {
-            input_type: Path[input_id]
-            for input_type, input_id in self.meta["inputs"].items()
-        }
-
-    @db_session
-    def input_paths(self) -> dict[str, str]:
-        return {input_type: path.path for input_type, path in self.inputs().items()}
+        return self.meta["inputs"]
 
     @property
     def meta(self) -> dict:
@@ -126,6 +119,7 @@ def add_rule_and_paths_to_DB(
     type: str,
     inputs: dict,
     outputs: dict,
+    # _output_path_make: lambda path, rule: path.format(rule_id=rule.id),
     **meta,
 ) -> DotDict:
     meta["inputs"] = inputs
@@ -133,7 +127,8 @@ def add_rule_and_paths_to_DB(
     output_paths = DotDict()
     for output_name, output in outputs.items():
         output_paths[output_name] = Path.GETINSERT(
-            path=output["path"].format(rule_id=rule.id),
+            # path=output["path"].format(rule_id=rule.id),
+            path=output["path"].format(rule_id=rule.id, **meta),
             type=output["type"],
             rule_or_config=rule,
         )

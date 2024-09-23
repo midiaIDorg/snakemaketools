@@ -2,7 +2,7 @@ import dataclasses
 import typing
 
 from snakemaketools.datastructures import DotDict
-from snakemaketools.models import Path, add_rule_and_paths_to_DB
+from snakemaketools.models import Path, RuleOrConfig, add_rule_and_paths_to_DB
 
 
 @dataclasses.dataclass
@@ -21,38 +21,38 @@ class Rule:
     type: str
     inputs: dict[str, str]
     outputs: dict[str, str]
-    meta: dict = dataclasses.field(default_factory=dict)
     add_rule_and_paths_to_DB: typing.Callable = dataclasses.field(
         default=add_rule_and_paths_to_DB
     )
     _type_ignore: str = "type_not_important"
 
     def __call__(self, **inputs: Path | str) -> DotDict:
-        checked_inputs = {}
-        for input_name, input_path in inputs.items():
-            assert (
-                input_name in self.inputs
-            ), f"`{input_name}` is not among accepted input types for rule {self.type}: {self.inputs}"
-            if isinstance(input_path, Path):
-                assert input_path.rule_id != None
-                expected_input_type = self.inputs[input_name]
-                if expected_input_type != self._type_ignore:
-                    assert input_path.type == self.inputs[input_name]
-                input_path = input_path.path
-            checked_inputs[input_name] = input_path
+        paths = {}
+        meta = {}
 
-        for _input in self.inputs:
-            assert (
-                _input in checked_inputs
-            ), f"Missing input `{_input}` in rule {self.type}. Requiring `{self.inputs}`."
+        for input, input_path in inputs.items():
+            if input in self.inputs:
+                if isinstance(input_path, Path):
+                    assert input_path.type == self.inputs[input]
+                    input_path = input_path.path
+                paths[input] = input_path
+            else:
+                meta[input] = input_path
 
-        output_paths = self.add_rule_and_paths_to_DB(
-            type=self.type,
-            inputs=checked_inputs,
-            outputs=self.outputs,
-            **self.meta,
-        )
+        if "rule_id" in meta:  # we are registering a ROOT
+            rule_or_config = None
+            rule_id = meta["rule_id"]
+        else:
+            rule_or_config = RuleOrConfig.GETINSERT(meta=meta, type=type)
+            rule_id = rule_or_config.id
 
+        output_paths = DotDict()
+        for output_name, output in self.outputs.items():
+            output_paths[output_name] = Path.GETINSERT(
+                path=output["path"].format(rule_id=rule_id, **meta),
+                type=output["type"],
+                rule_or_config=rule_or_config,
+            )
         return output_paths
 
     def __repr__(self) -> str:

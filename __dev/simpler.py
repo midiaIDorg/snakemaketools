@@ -43,28 +43,26 @@ subconfigs = CONFIG["subconfigs"]
 rule_config = dict(
     # likely: do the same as with choosing the clustering algo
     #   decide upon the pipeline paths construction.
-    register_fasta = dict(
-        inputs=dict(),
-        outputs=dict(
-            # argument name
-            fasta=dict(
-                type="fasta",# argument type
-                path="fastas/{rule_id}.fasta", # path template
-            ),
-            # likely this should be a soft link after all?
-            # or we provide and override. Soft link for simplicity.
-        )
-    ),
-    register_raw_data = dict(
-        inputs=dict(
-
-        ),
-        outputs=dict(
-            folder_d=dict(type="raw_data", path="spectra/{rule_id}.d"),
-            analysis_tdf=dict(type="sqlite", path="spectra/{rule_id}.d/analysis.tdf"),
-            analysis_tdf_bin=dict(type="tdf_bin", path="spectra/{rule_id}.d/analysis.tdf_bin"),
-        )
-    ),
+    # register_fasta = dict(
+    #     inputs=dict(),
+    #     outputs=dict(
+    #         # argument name
+    #         fasta=dict(
+    #             type="fasta",# argument type
+    #             path="fastas/{rule_id}.fasta", # path template
+    #         ),
+    #         # likely this should be a soft link after all?
+    #         # or we provide and override. Soft link for simplicity.
+    #     ),
+    #     meta=dict()
+    # ),
+    # register_raw_data = dict(
+    #     outputs=dict(
+    #         folder_d=dict(type="raw_data", path="spectra/{rule_id}.d"),
+    #         analysis_tdf=dict(type="sqlite", path="spectra/{rule_id}.d/analysis.tdf"),
+    #         analysis_tdf_bin=dict(type="tdf_bin", path="spectra/{rule_id}.d/analysis.tdf_bin"),
+    #     )
+    # ),
     get_tims_precursor_clustering_config=dict(
         inputs=dict(),
         outputs=dict(
@@ -166,19 +164,62 @@ with open("configs/rules/default.toml", "w") as f:
 
 rules = Rules.from_config(rule_config)
 
+
+def register_fasta(fasta: str) -> Path:
+    rule = RuleOrConfig.GETINSERT(
+        meta=dict(fasta=fasta, inputs={}),
+        type="register_fasta",
+    )
+    fasta = Path.GETINSERT(
+        path=f"fastas/{fasta}.fasta",
+        type="fasta",
+        rule_or_config=rule,
+    )
+    return fasta
+
+
+def register_tdf_rawdata(rawdata_tdf: str) -> tuple[Path, Path, Path]:
+    rule = RuleOrConfig.GETINSERT(
+        meta=dict(rawdata_tdf=rawdata_tdf, inputs={}),
+        type="register_tdf_rawdata",
+    )
+    folder_d = Path.GETINSERT(
+        path=f"spectra/{rawdata_tdf}.d",
+        type="raw_data",
+        rule_or_config=rule,
+    )
+    analysis_tdf = Path.GETINSERT(
+        path=f"spectra/{rawdata_tdf}.d/analysis.tdf",
+        type="analysis_tdf",
+        rule_or_config=rule,
+    )
+    analysis_tdf_bin = Path.GETINSERT(
+        path=f"spectra/{rawdata_tdf}/analysis.tdf_bin",
+        type="tdf_bin",
+        rule_or_config=rule,
+    )
+    return folder_d, analysis_tdf, analysis_tdf_bin
+
+paths = DotDict()
+paths.fasta = register_fasta(fasta=fasta_str)
+
+
+
+fasta = register_fasta(fasta=fasta_str)
+fasta.parent_paths()
+fasta.path
+
 (
     paths.dataset,
     paths.dataset_analysis_tdf,
     paths.dataset_analysis_tdf_bin,
-) = rules.register_raw_data(dataset_str)
+) = rules.register_raw_data(raw_data=dataset_str)
 
 paths.dataset_analysis_tdf_hash = hash256(paths.dataset_analysis_tdf)
 paths.dataset_analysis_tdf_bin_hash = hash256(paths.dataset_analysis_tdf_bin)
 paths.dataset_marginals_plots = raw_data_marginals_plots_folder(paths.dataset)
 
 
-paths = DotDict()
-paths.fasta = rules.register_fasta(fasta=fasta_str)
 
 
 
