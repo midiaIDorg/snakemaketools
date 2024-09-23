@@ -1,31 +1,65 @@
 %load_ext autoreload
 %autoreload 2
+import pathlib
 from functools import partial
 from pprint import pprint
 from types import SimpleNamespace
 from typing import Callable
 
 import toml
-from midia_pipe_hull.pipelines.base import pipeline
 from pony.orm import commit, db_session, set_sql_debug
+
+from midia_pipe_hull.pipelines.base import fill_DB_with_paths
 from snakemaketools.datastructures import DotDict
 from snakemaketools.models import Path, RuleOrConfig, db
 
 set_sql_debug()
-# db.bind(provider='sqlite', filename=':memory:', create_db=True)
-db.bind(provider='sqlite', filename='/home/matteo/Projects/midia/pipelines/devel/midia_pipe/base.sqlite', create_db=True)
+db.bind(provider='sqlite', filename=':memory:', create_db=True)
+# db.bind(provider='sqlite', filename='/home/matteo/Projects/midia/pipelines/devel/midia_pipe/base.sqlite', create_db=True)
 db.generate_mapping(create_tables=True)
 
-with open("configs/consolidated/default.toml", "r") as f:
-    config = toml.load(f)
-    # pprint(config)
+
 
 dataset = "G8027"
 calibration = "G8045"
 fasta = "Human_2024_02_16_UniProt_Taxon9606_Reviewed_20434entries_contaminant_tenzer"
-subconfigs = config["subconfigs"]
+config = "default"
+pipeline = "base"
 
-paths = pipeline(subconfigs=subconfigs, dataset=dataset, calibration=calibration, fasta=fasta,)
+with open(f"configs/consolidated/{config}.toml", "r") as f:
+    CONFIG = toml.load(f)
+    # pprint(config)
+subconfigs = CONFIG["subconfigs"]
+
+paths = fill_DB_with_paths(subconfigs=subconfigs, dataset=dataset, calibration=calibration, fasta=fasta,)
+
+path_ids = {k: node.id for k, node in paths.items() if node != None}
+wishes = {wish: path_ids[wish] for wish in CONFIG["wishlist"]} 
+
+with db_session:
+    rule = RuleOrConfig.GETINSERT(
+        meta=dict(
+            inputs=wishes,
+            path_ids=path_ids,
+            kwargs=dict(dataset=dataset, calibration=calibration, fasta=fasta, config=CONFIG, pipeline=pipeline,)
+        ),
+        type=f"populating_DB",
+    )
+    path = Path.GETINSERT(
+        path=f"tmp/populating_DB/{rule.id}.toml",
+        type=f"populating_DB",
+        rule_or_config=rule,
+    )
+
+mapping_path = pathlib.Path(f"tmp/pipelines/{path.id}.toml")
+mapping_path.parent.mkdir(exist_ok=True, parents=True)
+
+
+
+with open(mapping_path, "w") as f:
+    toml.dump(wishes, f)
+# later on, some other programme can pass on the path_id.
+
 
 
 
@@ -46,9 +80,6 @@ paths["dataset"].path
 # subconfig_name, subconfig = next(iter(config["subconfigs"].items()))
 
 
-
-path_ids = {k: node.id for k, node in paths.items() if node != None}
-path_ids# drop this to a json/toml.
 # likely one rule should output that and the chosen things
 # another shoud take it as input and produce the final thing.
 

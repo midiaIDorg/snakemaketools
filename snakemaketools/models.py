@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 
 from pony.orm import (
@@ -117,3 +118,21 @@ class RuleOrConfig(db.Entity):
     def GETCONFIG(cls, path: str, type: str):
         path = Path.GET(path=path, type=type)
         return cls[path.rule_or_config_id].get_config(type)
+
+
+def add_rule_and_paths_to_DB(
+    type: str,
+    outputs: dict,
+    inputs: dict[str, Path] = {},
+    **meta,
+) -> tuple[Path, ...]:
+    meta["inputs"] = {}
+    for input_type, input_path in inputs.items():
+        assert input_path.id is not None
+        meta["inputs"][input_type] = input_path.id
+    rule = RuleOrConfig.GETINSERT(meta=meta, type=type)
+    output_paths = [
+        Path.GETINSERT(path=output_path, type=output_type, rule_or_config=rule)
+        for output_type, output_path in inputs.items()
+    ]
+    return output_paths
