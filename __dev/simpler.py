@@ -34,8 +34,6 @@ with open(f"configs/consolidated/{config}.toml", "r") as f:
     # pprint(config)
 subconfigs = CONFIG["subconfigs"]
 
-
-
 # Question: how to pass in the version of the software? Tims must be specified alongside other configs? No, better: simply one of the inputs should contain the proper path. But when is it passed in? Likely in the pipeline function: this is where we have access to configs anyway.
 # OK, so the pipeline should get the consolidated config and decide upon all of that. It anyway needs to read in the configs below that specify the rules too.
 # so a pipeline will get 2 files.
@@ -48,46 +46,62 @@ rule_config = dict(
     register_fasta = dict(
         inputs=dict(),
         outputs=dict(
-            fasta="tmp/fastas/{rule_id}.fasta",# likely this should be a soft link after all?
+            # argument name
+            fasta=dict(
+                type="fasta",# argument type
+                path="tmp/fastas/{rule_id}.fasta", # path template
+            ),
+            # likely this should be a soft link after all?
             # or we provide and override. Soft link for simplicity.
         )
     ),
     register_rawdata = dict(
         inputs=dict(),
         outputs=dict(
-            raw_data="tmp/raw_data/{rule_id}.d",
-            analysis_tdf="tmp/raw_data/{rule_id}.d/analysis.tdf",
-            analysis_tdf_bin="tmp/raw_data/{rule_id}.d/analysis.tdf_bin",
+            folder_d=dict(type="raw_data", path="tmp/raw_data/{rule_id}.d"),
+            analysis_tdf=dict(type="sqlite", path="tmp/raw_data/{rule_id}.d/analysis.tdf"),
+            analysis_tdf_bin=dict(type="tdf_bin", path="tmp/raw_data/{rule_id}.d/analysis.tdf_bin"),
         )
     ),
     get_tims_precursor_clustering_config=dict(
         inputs=dict(),
         outputs=dict(
-            tims_precursor_clustering_config="tmp/configs/tims_precursor_clustering_config/{rule_id}.config",
+            tims_precursor_clustering_config=dict(
+                type="tims_precursor_clustering_config",
+                path="tmp/configs/tims_precursor_clustering_config/{rule_id}.config",
+            ),
         ),
     ),
     get_tims_fragment_clustering_config=dict(
         inputs=dict(),
         outputs=dict(
-            tims_fragment_clustering_config="tmp/configs/tims_fragment_clustering_config/{rule_id}.config"
+            tims_fragment_clustering_config=dict(
+                type="tims_fragment_clustering_config",
+                path="tmp/configs/tims_fragment_clustering_config/{rule_id}.config",
+            )
         ),
     ),
     get_precursor_cluster_stats_config=dict(
         inputs=dict(),
         outputs=dict(
-            precursor_cluster_stats_config="tmp/configs/precursor_cluster_stats_config/{rule_id}.toml"
+            type="precursor_cluster_stats_config",
+            path="tmp/configs/precursor_cluster_stats_config/{rule_id}.toml",
         ),
     ),
     get_fragment_cluster_stats_config=dict(
         inputs=dict(),
         outputs=dict(
-            fragment_cluster_stats_config="tmp/configs/fragment_cluster_stats_config/{rule_id}.toml"
+            type="fragment_cluster_stats_config",
+            path="tmp/configs/fragment_cluster_stats_config/{rule_id}.toml",
         ),
     ),
     get_matching_config=dict(
         inputs=dict(),
         outputs=dict(
-            matching_config="tmp/configs/matching_config/{rule_id}.toml"
+            matching_config=dict(
+                type="matching_config",
+                path="tmp/configs/matching_config/{rule_id}.toml",
+            )
         ),
     ),
     remove_raw_data_baseline = dict(
@@ -96,50 +110,67 @@ rule_config = dict(
             config="baseline_removal_config",
         ),
         outputs=dict(
-            raw_data = "tmp/spectra/no_baseline/{rule_id}.d",
-            analysis_tdf = "tmp/spectra/no_baseline/{rule_id}.d/analysis.tdf",
-            analysis_tdf_bin = "tmp/spectra/no_baseline/{rule_id}.d/analysis.tdf_bin",
+            folder_d = dict(
+                type = "raw_data",
+                path = "tmp/spectra/no_baseline/{rule_id}.d",
+            ),
+            analysis_tdf = dict(
+                type = "analysis_tdf",
+                path="tmp/spectra/no_baseline/{rule_id}.d/analysis.tdf",
+            ),
+            analysis_tdf_bin = dict(
+                type = "analysis_tdf_bin",
+                path = "tmp/spectra/no_baseline/{rule_id}.d/analysis.tdf_bin",
+            ),
+        ),
+    ),
+    hash256 = dict(
+        inputs=dict(
+            path="type_not_important", # gets neglected: set in Rule._type_ignore
+        ),
+        outputs=dict(
+            hashfile = dict(
+                type = "sha256",
+                path = "tmp/hashes/{rule.id}.sha256",
+            ),
+        ),
+    ),
+    report_if_dataset_and_calibration_comply = dict(
+        inputs = dict(
+            dataset = "raw_data",
+            calibration = "raw_data",
+        ),
+        outputs = dict(
+            dataset_matches_calibration_assertion = dict(
+                type = "dataset_matches_calibration_assertion",
+                path = "tmp/assertions/dataset_matches_calibration/{rule.id}.d"
+            )
+        ),
+    ),
+    get_tims_executable = dict(
+        inputs = dict(),
+        outputs = dict(
+            tims_executable=dict(
+                type="tims_executable",
+                path="tmp/executables/{rule_id}",
+            )
         ),
     ),
 )
-
 
 with open("configs/rules/default.toml", "w") as f:
     toml.dump(rule_config, f)
 
 
-
-class Rules:
-    def __init__(self, rules: dict[str,Rule]):
-        self._rules = rules
-
-    @classmethod
-    def from_config(cls, config: dict):
-        rules = {}
-        for rule_type, subconfig in config.items():
-            try:
-                rules[rule_type] = Rule(type=rule_type, **subconfig)
-            except TypeError as e:
-                print(f"Trouble at '{rule_type}'")
-                raise TypeError(f"Problem with `{rule_type}`:\n{repr(e)}")
-        return cls(rules)
-
-    def __getattr__(self, rule_name):
-        try:
-            return self._rules[rule_name]
-        except KeyError:
-            raise AttributeError(f"'DotDict' object has no rule '{rule_name}'")
-
-    def __repr__(self) -> str:
-        txt = '\n\n'.join(map(repr, self._rules.values()))
-        return f"Rules:\n{txt}"
-
-
-
 rules = Rules.from_config(rule_config)
 
+
+paths = DotDict()
+rules.register_fasta(fasta=fasta)
+
+
 rules.get_matching_config
-rules._rules.values()
+
 
 rules.remove_raw_data_baseline_parametrization
 rules.remove_raw_data_baseline_parametrization.type

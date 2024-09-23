@@ -2,7 +2,7 @@ import dataclasses
 import typing
 
 from snakemaketools.datastructures import DotDict
-from snakemaketools.models import Path, RuleOrConfig, add_rule_and_paths_to_DB
+from snakemaketools.models import Path, add_rule_and_paths_to_DB
 
 
 @dataclasses.dataclass
@@ -25,22 +25,30 @@ class Rule:
     add_rule_and_paths_to_DB: typing.Callable = dataclasses.field(
         default=add_rule_and_paths_to_DB
     )
+    _type_ignore: str = "type_not_important"
 
-    def __call__(self, **inputs: str) -> DotDict:
-        # IO control
-        for _input in inputs:
+    def __call__(self, **inputs: Path | str) -> DotDict:
+        checked_inputs = {}
+        for input_name, input_path in inputs.items():
             assert (
-                _input in self.inputs
-            ), f"`{_input}` is not among accepted input types for rule {self.type}: {self.inputs}"
+                input_name in self.inputs
+            ), f"`{input_name}` is not among accepted input types for rule {self.type}: {self.inputs}"
+            if isinstance(input_path, Path):
+                assert input_path.rule_id != None
+                expected_input_type = self.inputs[input_name]
+                if expected_input_type != self._type_ignore:
+                    assert input_path.type == self.inputs[input_name]
+                input_path = input_path.path
+            checked_inputs[input_name] = input_path
 
         for _input in self.inputs:
             assert (
-                _input in inputs
+                _input in checked_inputs
             ), f"Missing input `{_input}` in rule {self.type}. Requiring `{self.inputs}`."
 
         output_paths = self.add_rule_and_paths_to_DB(
             type=self.type,
-            inputs=inputs,
+            inputs=checked_inputs,
             outputs=self.outputs,
             **self.meta,
         )
