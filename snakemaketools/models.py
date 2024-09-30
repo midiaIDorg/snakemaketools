@@ -115,21 +115,21 @@ class RuleOrConfig(db.Entity):
         return cls[path.rule_or_config_id].get_config(type)
 
 
-def add_rule_and_paths_to_DB(
-    type: str,
-    inputs: dict,
-    outputs: dict,
-    # _output_path_make: lambda path, rule: path.format(rule_id=rule.id),
-    **meta,
-) -> DotDict:
-    meta["inputs"] = inputs
-    rule = RuleOrConfig.GETINSERT(meta=meta, type=type)
-    output_paths = DotDict()
-    for output_name, output in outputs.items():
-        output_paths[output_name] = Path.GETINSERT(
-            # path=output["path"].format(rule_id=rule.id),
-            path=output["path"].format(rule_id=rule.id, **meta),
-            type=output["type"],
-            rule_or_config=rule,
-        )
-    return output_paths
+# def add_rule_and_paths_to_DB(
+#     type: str,
+#     inputs: dict,
+#     outputs: dict,
+#     # _output_path_make: lambda path, rule: path.format(rule_id=rule.id),
+#     **meta,
+# ) -> DotDict:
+#     meta["inputs"] = inputs
+#     rule = RuleOrConfig.GETINSERT(meta=meta, type=type)
+#     output_paths = DotDict()
+#     for output_name, output in outputs.items():
+#         output_paths[output_name] = Path.GETINSERT(
+#             # path=output["path"].format(rule_id=rule.id),
+#             path=output["path"].format(rule_id=rule.id, **meta),
+#             type=output["type"],
+#             rule_or_config=rule,
+#         )
+#     return output_paths

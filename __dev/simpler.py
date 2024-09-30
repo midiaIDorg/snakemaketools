@@ -4,28 +4,31 @@ from __future__ import annotations
 
 import dataclasses
 import pathlib
+import typing
+from abc import ABC, abstractmethod
 from functools import partial
 from pprint import pprint
 from types import SimpleNamespace
-from typing import Callable
+from typing import Callable, Protocol
 
 import toml
 from pony.orm import commit, db_session, set_sql_debug
 
 from midia_pipe_hull.pipelines.base import fill_DB_with_paths
 from snakemaketools.datastructures import DotDict
-from snakemaketools.models import (Path, RuleOrConfig,
-                                   add_rule_and_paths_to_DB, db)
-from snakemaketools.rules import Rules
+from snakemaketools.models import Path, RuleOrConfig, db
+from snakemaketools.rules import Path, PathStorage, PathType, Root, Rule
+
+# seems we do not need distinction between Rule and RuleType.
 
 set_sql_debug()
 db.bind(provider='sqlite', filename=':memory:', create_db=True)
 # db.bind(provider='sqlite', filename='/home/matteo/Projects/midia/pipelines/devel/midia_pipe/base.sqlite', create_db=True)
 db.generate_mapping(create_tables=True)
 
-dataset_str = "G8027"
-calibration_str = "G8045"
-fasta_str = "Human_2024_02_16_UniProt_Taxon9606_Reviewed_20434entries_contaminant_tenzer"
+dataset = "G8027"
+calibration = "G8045"
+fasta = "Human_2024_02_16_UniProt_Taxon9606_Reviewed_20434entries_contaminant_tenzer"
 config = "default"
 pipeline = "base"
 
@@ -34,174 +37,236 @@ with open(f"configs/consolidated/{config}.toml", "r") as f:
     # pprint(config)
 subconfigs = CONFIG["subconfigs"]
 
+
+
+register_raw_data = dict(
+    expected_outputs=dict(
+        folder_d=dict(type="raw_data", path="spectra/{}.d"),
+        analysis_tdf=dict(type="sqlite", path="spectra/{}.d/analysis.tdf"),
+        analysis_tdf_bin=dict(type="tdf_bin", path="spectra/{}.d/analysis.tdf_bin"),
+    )
+)
+# turn that into a function? without reusing Rule?
+
+def register_raw_data(dataset: str) -> tuple[Path,Path,Path]:
+    folder_d = Path(data_type="raw_data", location=f"spectra/{dataset}.d")
+    analysis_tdf = Path(data_type="analysis_tdf", location=f"spectra/{dataset}/analysis.tdf")
+    analysis_tdf_bin = Path(data_type="analysis_tdf_bin", location=f"spectra/{dataset}/analysis.tdf_bin")
+    return folder_d, analysis_tdf, analysis_tdf_bin
+
+def register_fasta(fasta: str) -> Path:
+    fasta = Path(data_type="fasta", location=f"fastas/{fasta}.fasta")
+    return fasta
+
+# the same for every other config
+
+roots_config = dict(
+    register_raw_data = dict(
+        expected_outputs=dict(
+            folder_d=dict(type="raw_data", path="spectra/{}.d"),
+            analysis_tdf=dict(type="sqlite", path="spectra/{}.d/analysis.tdf"),
+            analysis_tdf_bin=dict(type="tdf_bin", path="spectra/{}.d/analysis.tdf_bin"),
+        )
+    ),
+    register_fasta = dict(
+        expected_outputs=dict(
+            fasta=dict(type="fasta", path="fastas/{}.fasta"),
+        )
+    ),
+    get_tims_precursor_clustering_config=dict(
+        expected_inputs=dict(),
+        expected_outputs=dict(
+            tims_precursor_clustering_config=dict(
+                name="tims_precursor_clustering_config",
+                path_template="tmp/configs/tims_precursor_clustering_config/{}.config",
+            ),
+        ),
+    ),
+    get_tims_fragment_clustering_config=dict(
+        expected_inputs=dict(),
+        expected_outputs=dict(
+            tims_fragment_clustering_config=dict(
+                name="tims_fragment_clustering_config",
+                path_template="tmp/configs/tims_fragment_clustering_config/{}.config",
+            )
+        ),
+    ),
+    get_precursor_cluster_stats_config=dict(
+        expected_inputs=dict(),
+        expected_outputs=dict(
+            precursor_cluster_stats_config=dict(
+                name="precursor_cluster_stats_config",
+                path_template="tmp/configs/precursor_cluster_stats_config/{}.toml",
+            )
+        ),
+    ),
+    get_fragment_cluster_stats_config=dict(
+        expected_inputs=dict(),
+        expected_outputs=dict(
+            name="fragment_cluster_stats_config",
+            path_template="tmp/configs/fragment_cluster_stats_config/{}.toml",
+        ),
+    ),
+    get_matching_config=dict(
+        expected_inputs=dict(),
+        expected_outputs=dict(
+            matching_config=dict(
+                name="matching_config",
+                path_template="tmp/configs/matching_config/{}.toml",
+            )
+        ),
+    ),
+
+)
+
+
+# this should be a PathStorage methode.
+def get_config(meta) -> Path:
+
+
+
+# also: roots won't be reused? of course they will: dataset + calibration
+@dataclasses.dataclass
+class RootsRule:
+    rule_type: str
+    expected_outputs: DotDict[str, str]
+    path_storage: PathStorage
+
+    def __call__(self, meta: dict) -> DotDict[str, Path]:
+        return tuple(
+            Path(data_type=data_type, location=)
+            for _, data_type in self.expected_outputs
+        )
+
+
+
+# w sumie, to czemu potrzebuję tych klass , skoro to de-facto wrappery na PathStorage??? Czy tak istotnie jest?
+# Tylko po to, żeby unikać wywołań zależnych od root_type i rule_type i mieć `funkcje`.
+# Te checki z Rule.__call__ dać do PathStorega.output_paths? nie można: bo to nie powinno nic wiedzieć o inputach. Jak jest, jest OK.
+
+
+
+
+
 # Question: how to pass in the version of the software? Tims must be specified alongside other configs? No, better: simply one of the inputs should contain the proper path. But when is it passed in? Likely in the pipeline function: this is where we have access to configs anyway.
 # OK, so the pipeline should get the consolidated config and decide upon all of that. It anyway needs to read in the configs below that specify the rules too.
 # so a pipeline will get 2 files.
 
 # try to write some rules for the configs.
 
+config = dict(
+    path_types=dict(
+        raw_data
+    )
+)
+
+
 rule_config = dict(
-    # likely: do the same as with choosing the clustering algo
-    #   decide upon the pipeline paths construction.
-    # register_fasta = dict(
-    #     inputs=dict(),
-    #     outputs=dict(
-    #         # argument name
-    #         fasta=dict(
-    #             type="fasta",# argument type
-    #             path="fastas/{rule_id}.fasta", # path template
-    #         ),
-    #         # likely this should be a soft link after all?
-    #         # or we provide and override. Soft link for simplicity.
-    #     ),
-    #     meta=dict()
-    # ),
-    # register_raw_data = dict(
-    #     outputs=dict(
-    #         folder_d=dict(type="raw_data", path="spectra/{rule_id}.d"),
-    #         analysis_tdf=dict(type="sqlite", path="spectra/{rule_id}.d/analysis.tdf"),
-    #         analysis_tdf_bin=dict(type="tdf_bin", path="spectra/{rule_id}.d/analysis.tdf_bin"),
-    #     )
-    # ),
-    get_tims_precursor_clustering_config=dict(
-        inputs=dict(),
-        outputs=dict(
-            tims_precursor_clustering_config=dict(
-                type="tims_precursor_clustering_config",
-                path="tmp/configs/tims_precursor_clustering_config/{rule_id}.config",
-            ),
-        ),
-    ),
-    get_tims_fragment_clustering_config=dict(
-        inputs=dict(),
-        outputs=dict(
-            tims_fragment_clustering_config=dict(
-                type="tims_fragment_clustering_config",
-                path="tmp/configs/tims_fragment_clustering_config/{rule_id}.config",
-            )
-        ),
-    ),
-    get_precursor_cluster_stats_config=dict(
-        inputs=dict(),
-        outputs=dict(
-            type="precursor_cluster_stats_config",
-            path="tmp/configs/precursor_cluster_stats_config/{rule_id}.toml",
-        ),
-    ),
-    get_fragment_cluster_stats_config=dict(
-        inputs=dict(),
-        outputs=dict(
-            type="fragment_cluster_stats_config",
-            path="tmp/configs/fragment_cluster_stats_config/{rule_id}.toml",
-        ),
-    ),
-    get_matching_config=dict(
-        inputs=dict(),
-        outputs=dict(
-            matching_config=dict(
-                type="matching_config",
-                path="tmp/configs/matching_config/{rule_id}.toml",
-            )
-        ),
-    ),
     remove_raw_data_baseline = dict(
-        inputs=dict(
+        expected_inputs=dict(
             raw_data="folder_d",
             config="baseline_removal_config",
         ),
-        outputs=dict(
+        expected_outputs=dict(
             folder_d = dict(
-                type = "raw_data",
-                path = "tmp/spectra/no_baseline/{rule_id}.d",
+                name = "raw_data",
+                folder_d = "tmp/spectra/no_baseline/{rule_id}.d",
             ),
             analysis_tdf = dict(
-                type = "analysis_tdf",
-                path="tmp/spectra/no_baseline/{rule_id}.d/analysis.tdf",
+                name = "sqlite",
+                path_template="tmp/spectra/no_baseline/{rule_id}.d/analysis.tdf",
             ),
             analysis_tdf_bin = dict(
-                type = "analysis_tdf_bin",
+                name = "tdf_bin",
                 path = "tmp/spectra/no_baseline/{rule_id}.d/analysis.tdf_bin",
             ),
         ),
     ),
     hash256 = dict(
-        inputs=dict(
-            path="type_not_important", # gets neglected: set in Rule._type_ignore
+        expected_inputs=dict(
+            path_template="", # empty = no specific type
         ),
-        outputs=dict(
+        expected_outputs=dict(
             hashfile = dict(
-                type = "sha256",
+                name = "sha256",
                 path = "tmp/hashes/{rule.id}.sha256",
             ),
         ),
     ),
     report_if_dataset_and_calibration_comply = dict(
-        inputs = dict(
+        expected_inputs = dict(
             dataset = "raw_data",
             calibration = "raw_data",
         ),
-        outputs = dict(
+        expected_outputs = dict(
             dataset_matches_calibration_assertion = dict(
-                type = "dataset_matches_calibration_assertion",
+                name = "dataset_matches_calibration_assertion",
                 path = "tmp/assertions/dataset_matches_calibration/{rule.id}.d"
             )
         ),
     ),
     get_tims_executable = dict(
-        inputs = dict(),
-        outputs = dict(
+        expected_inputs = dict(),
+        expected_outputs = dict(
             tims_executable=dict(
-                type="tims_executable",
-                path="tmp/executables/{rule_id}",
+                name="tims_executable",
+                path_template="tmp/executables/{rule_id}",
             )
         ),
     ),
 )
 
+
+
 with open("configs/rules/default.toml", "w") as f:
     toml.dump(rule_config, f)
 
+# r = Rule(outputs_maker=lambda x:x, rule_type="hash256", **rule_config["hash256"])
+# r
 
-rules = Rules.from_config(rule_config)
+# for rule_name, subconfig in config.items():
 
-
-def register_fasta(fasta: str) -> Path:
-    rule = RuleOrConfig.GETINSERT(
-        meta=dict(fasta=fasta, inputs={}),
-        type="register_fasta",
-    )
-    fasta = Path.GETINSERT(
-        path=f"fastas/{fasta}.fasta",
-        type="fasta",
-        rule_or_config=rule,
-    )
-    return fasta
+rules = parse_rules(rule_config, lambda x:x)
 
 
-def register_tdf_rawdata(rawdata_tdf: str) -> tuple[Path, Path, Path]:
-    rule = RuleOrConfig.GETINSERT(
-        meta=dict(rawdata_tdf=rawdata_tdf, inputs={}),
-        type="register_tdf_rawdata",
-    )
-    folder_d = Path.GETINSERT(
-        path=f"spectra/{rawdata_tdf}.d",
-        type="raw_data",
-        rule_or_config=rule,
-    )
-    analysis_tdf = Path.GETINSERT(
-        path=f"spectra/{rawdata_tdf}.d/analysis.tdf",
-        type="analysis_tdf",
-        rule_or_config=rule,
-    )
-    analysis_tdf_bin = Path.GETINSERT(
-        path=f"spectra/{rawdata_tdf}/analysis.tdf_bin",
-        type="tdf_bin",
-        rule_or_config=rule,
-    )
-    return folder_d, analysis_tdf, analysis_tdf_bin
+# def register_fasta(fasta: str) -> Path:
+#     rule = RuleOrConfig.GETINSERT(
+#         meta=dict(fasta=fasta, inputs={}),
+#         type="register_fasta",
+#     )
+#     fasta = Path.GETINSERT(
+#         path=f"fastas/{fasta}.fasta",
+#         type="fasta",
+#         rule_or_config=rule,
+#     )
+#     return fasta
+
+
+# def register_tdf_rawdata(rawdata_tdf: str) -> tuple[Path, Path, Path]:
+#     rule = RuleOrConfig.GETINSERT(
+#         meta=dict(rawdata_tdf=rawdata_tdf, inputs={}),
+#         type="register_tdf_rawdata",
+#     )
+#     folder_d = Path.GETINSERT(
+#         path=f"spectra/{rawdata_tdf}.d",
+#         type="raw_data",
+#         rule_or_config=rule,
+#     )
+#     analysis_tdf = Path.GETINSERT(
+#         path=f"spectra/{rawdata_tdf}.d/analysis.tdf",
+#         type="analysis_tdf",
+#         rule_or_config=rule,
+#     )
+#     analysis_tdf_bin = Path.GETINSERT(
+#         path=f"spectra/{rawdata_tdf}/analysis.tdf_bin",
+#         type="tdf_bin",
+#         rule_or_config=rule,
+#     )
+#     return folder_d, analysis_tdf, analysis_tdf_bin
 
 paths = DotDict()
 paths.fasta = register_fasta(fasta=fasta_str)
+
 
 
 
@@ -219,7 +284,7 @@ paths.dataset_analysis_tdf_hash = hash256(paths.dataset_analysis_tdf)
 paths.dataset_analysis_tdf_bin_hash = hash256(paths.dataset_analysis_tdf_bin)
 paths.dataset_marginals_plots = raw_data_marginals_plots_folder(paths.dataset)
 
-
+# OK, somewhere we need to use the path_templates
 
 
 
@@ -390,3 +455,71 @@ Node[22].origin
 # )
 # graph = pipeline(**roots)
 # graph["rough_matches"].origin
+
+
+# likely: do the same as with choosing the clustering algo
+#   decide upon the pipeline paths construction.
+# register_fasta = dict(
+#     expected_inputs=dict(),
+#     expected_outputs=dict(
+#         # argument name
+#         fasta=dict(
+#             type="fasta",# argument type
+#             path="fastas/{rule_id}.fasta", # path template
+#         ),
+#         # likely this should be a soft link after all?
+#         # or we provide and override. Soft link for simplicity.
+#     ),
+#     meta=dict()
+# ),
+# register_raw_data = dict(
+#     expected_outputs=dict(
+#         folder_d=dict(type="raw_data", path="spectra/{rule_id}.d"),
+#         analysis_tdf=dict(type="sqlite", path="spectra/{rule_id}.d/analysis.tdf"),
+#         analysis_tdf_bin=dict(type="tdf_bin", path="spectra/{rule_id}.d/analysis.tdf_bin"),
+#     )
+# ),
+
+    # get_tims_precursor_clustering_config=dict(
+    #     expected_inputs=dict(),
+    #     expected_outputs=dict(
+    #         tims_precursor_clustering_config=dict(
+    #             name="tims_precursor_clustering_config",
+    #             path_template="tmp/configs/tims_precursor_clustering_config/{rule_id}.config",
+    #         ),
+    #     ),
+    # ),
+    # get_tims_fragment_clustering_config=dict(
+    #     expected_inputs=dict(),
+    #     expected_outputs=dict(
+    #         tims_fragment_clustering_config=dict(
+    #             name="tims_fragment_clustering_config",
+    #             path_template="tmp/configs/tims_fragment_clustering_config/{rule_id}.config",
+    #         )
+    #     ),
+    # ),
+    # get_precursor_cluster_stats_config=dict(
+    #     expected_inputs=dict(),
+    #     expected_outputs=dict(
+    #         precursor_cluster_stats_config=dict(
+    #             name="precursor_cluster_stats_config",
+    #             path_template="tmp/configs/precursor_cluster_stats_config/{rule_id}.toml",
+    #         )
+    #     ),
+    # ),
+    # get_fragment_cluster_stats_config=dict(
+    #     expected_inputs=dict(),
+    #     expected_outputs=dict(
+    #         name="fragment_cluster_stats_config",
+    #         path_template="tmp/configs/fragment_cluster_stats_config/{rule_id}.toml",
+    #     ),
+    # ),
+    # get_matching_config=dict(
+    #     expected_inputs=dict(),
+    #     expected_outputs=dict(
+    #         matching_config=dict(
+    #             name="matching_config",
+    #             path_template="tmp/configs/matching_config/{rule_id}.toml",
+    #         )
+    #     ),
+    # ),
