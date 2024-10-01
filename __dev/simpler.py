@@ -12,19 +12,31 @@ from types import SimpleNamespace
 from typing import Callable, Protocol
 
 import toml
-from pony.orm import commit, db_session, set_sql_debug
+from pony.orm import (Database, Optional, PrimaryKey, Required, Set, commit,
+                      composite_index, db_session, set_sql_debug)
 
-from midia_pipe_hull.pipelines.base import fill_DB_with_paths
+# from midia_pipe_hull.pipelines.base import fill_DB_with_paths
 from snakemaketools.datastructures import DotDict
-from snakemaketools.models import Path, RuleOrConfig, db
-from snakemaketools.rules import Path, PathStorage, PathType, Root, Rule
+from snakemaketools.models2 import db
+from snakemaketools.rules import Path, Root, Rule
 
-# seems we do not need distinction between Rule and RuleType.
+# from snakemaketools.rules import Path, PathStorage, Root, Rule
+
+
+
 
 set_sql_debug()
 db.bind(provider='sqlite', filename=':memory:', create_db=True)
 # db.bind(provider='sqlite', filename='/home/matteo/Projects/midia/pipelines/devel/midia_pipe/base.sqlite', create_db=True)
 db.generate_mapping(create_tables=True)
+
+
+db_path_storage = DBPathStorage()
+
+
+
+# seems we do not need distinction between Rule and RuleType.
+
 
 dataset = "G8027"
 calibration = "G8045"
@@ -37,6 +49,7 @@ with open(f"configs/consolidated/{config}.toml", "r") as f:
     # pprint(config)
 subconfigs = CONFIG["subconfigs"]
 
+subconfigs["tims_precursor_clustering_config"]["config"]
 
 
 register_raw_data = dict(
@@ -95,7 +108,7 @@ roots_config = dict(
         expected_inputs=dict(),
         expected_outputs=dict(
             precursor_cluster_stats_config=dict(
-                name="precursor_cluster_stats_config",
+                name="precursor_cluster_stats_configl",
                 path_template="tmp/configs/precursor_cluster_stats_config/{}.toml",
             )
         ),
