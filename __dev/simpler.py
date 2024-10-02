@@ -19,7 +19,7 @@ import snakemaketools.rules
 # from midia_pipe_hull.pipelines.base import fill_DB_with_paths
 from snakemaketools.datastructures import DotDict
 from snakemaketools.encodings import partial_format
-from snakemaketools.models2 import *
+from snakemaketools.models import *
 
 # from snakemaketools.rules import Path, PathStorage, Root, Rule
 
@@ -118,7 +118,7 @@ config = dict(
 # TODO: cool idea: make a script that checks for the all constrained occurences of an object in a database.
 # TODO: make a scipt that given a path, reports back all of the steps needed to make this. But for that: we will need the rules to actually save their names.
 
-node_storage = SimplePonyNodeStorage(register_in_db=False)
+node_storage = SimplePonyNodeStorage(_register_in_db=False)
 rules = DotDict()
 for rule_name, subconfig in config.items(): 
     rules[rule_name] = snakemaketools.rules.Rule(
@@ -148,9 +148,8 @@ for rule in rules.values():
         expected_output.location = partial_format(string=expected_output.location, **root_wildcards) 
 
 # OK, so that seems solved finally
-rules.register_dataset
-rules.register_fasta
-
+dataset, rules.register_dataset()
+rules.register_fasta()
 
 
 

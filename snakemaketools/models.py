@@ -1,135 +1,171 @@
 from __future__ import annotations
 
-import copy
+import dataclasses
 import json
 
-from pony.orm import (
-    Database,
-    Optional,
-    PrimaryKey,
-    Required,
-    Set,
-    commit,
-    composite_index,
-    db_session,
-)
+from pony.orm import Optional, PrimaryKey, Required, commit, db_session
 
+import snakemaketools.rules
 from snakemaketools.datastructures import DotDict
+from snakemaketools.db_config import db
 
-db = Database()
 
+class Storable(db.Entity):
+    """A general entry in a DB.
 
-class Path(db.Entity):
-    """Any unique path identifier."""
+    Only one table is needed to represent all things on this approach.
+
+    Everything is indexed by the json-serialized content string.
+    """
 
     id = PrimaryKey(int, auto=True, unsigned=True)
-    path = Required(str)
-    type = Required(str)
-    rule_or_config_id = Optional(int)
-    composite_index(path, type)
+    serialized_content = Required(str, index=True)
 
     @db_session
-    def parent_paths(self) -> dict[str, str]:
-        return RuleOrConfig[self.rule_or_config_id].inputs()
+    def get_content(self):
+        return json.loads(self.serialized_content)
 
     @classmethod
     @db_session
-    def GETINSERT(
-        cls, path: str, type: str, rule_or_config: RuleOrConfig | None = None
-    ) -> Path:
+    def GETINSERT(cls, **content) -> Storable:
+        serialized_content = json.dumps(content, sort_keys=True)
+        storable = cls.get(serialized_content=serialized_content)
+        commit()
+        if storable is None:
+            storable = cls(serialized_content=serialized_content)
+            commit()
+        return storable
+
+    @classmethod
+    @db_session
+    def GET(cls, **content: str) -> Storable:
         """Get an object ID from the DB if exists; otherwise first create it."""
-        node = cls.get(path=path, type=type)
+        serialized_content = json.dumps(content, sort_keys=True)
+        storable = cls.get(serialized_content=serialized_content)
+        commit()
+        if storable == None:
+            raise KeyError(
+                f"There is no storable with content `{serialized_content}` in the DB."
+            )
+        return storable
+
+
+class Config(Storable):
+    def get_config(self) -> dict:
+        return self.get_content()
+
+
+class Rule(Storable):
+    def input_nodes(self) -> DotDict[str, dict]:  # order matters
+        inputs = DotDict()
+        for node_name, node_id in self.get_content.items():
+            inputs[node_name] = Node[node_id].get_node_contents()
+        return inputs
+
+
+class Node(Storable):
+    """Any meaningul pipeline entity."""
+
+    rule_id = Optional(int)
+    # only to store info from a potential subclass of Node:
+    serialized_additional_content = Optional(str)
+
+    @db_session
+    def get_parent_nodes(self) -> DotDict[str, dict]:
+        if self.rule_id == None:
+            return DotDict()
+        return Rule[self.rule_id].input_nodes()
+
+    @db_session
+    def get_additional_content(self) -> dict:
+        if self.serialized_additional_content == None:
+            return {}
+        return json.loads(self.serialized_additional_content)
+
+    @db_session
+    def get_node_contents(self) -> dict:
+        return {
+            **self.get_content(),
+            **self.get_additional_content(),
+        }
+
+    @classmethod
+    @db_session
+    def GETINSERT(cls, location, **additional_content) -> Storable:
+        serialized_content = json.dumps(
+            {"location": location},
+            sort_keys=True,
+        )
+        node = cls.get(serialized_content=serialized_content)
         commit()
         if node is None:
-            rule_or_config_id = rule_or_config.id if rule_or_config != None else None
             node = cls(
-                path=path,
-                type=type,
-                rule_or_config_id=rule_or_config_id,
+                serialized_content=serialized_content,
+                serialized_additional_content=json.dumps(
+                    additional_content,
+                    sort_keys=True,
+                ),
             )
             commit()
-        return node
-
-    @classmethod
-    @db_session
-    def GET(cls, path: str, type: str) -> Path:
-        """Get an object ID from the DB by path.
-
-        This is used only by the Snakemake.
-
-        Arguments:
-            path (str): Path's path.
-            type (str): Path's type.
-
-        Returns:
-            Path: An instance of the path.
-
-        Raises:
-            KeyError: if a path with a given (meta, type) does not exist in the db.
-        """
-        path = cls.get(path=path, type=type)
-        commit()
-        if path is None:
-            raise KeyError(f"There DB does not contain a Path(path={path})")
-        return path
+        return storable
 
 
-class RuleOrConfig(db.Entity):
-    id = PrimaryKey(int, auto=True, unsigned=True)
-    _meta = Required(str)
-    type = Required(str)
-    composite_index(_meta, type)
+@dataclasses.dataclass
+class SimplePonyNodeStorage(snakemaketools.rules.NodeStorage):
+    """Implementation of a general NodeStorage Protocol using Pony ORM.
 
-    @db_session
-    def inputs(self) -> dict[str, Path]:
-        return self.meta["inputs"]
+    If you don't want to use the DB but use current IN-RAM numbering scheme, pass in `_register_in_db=False` on init.
+    """
 
-    @property
-    def meta(self) -> dict:
-        return json.loads(self._meta)
+    # this below offers only an ultra-dumb debugging mechanism. Do not use it.
+    _register_in_db: bool = True
+    _rule_cnt: int = -1
 
-    @db_session
-    def get_config(self, type) -> dict:
-        assert self.type == type
-        return self.meta["subconfig"]["config"]
+    def get_rule_id(
+        self,
+        inputs: dict[str, snakemake.rules.Node],
+    ) -> int:
+        """Get a rule id for a given set of input nodes."""
+        if not self._register_in_db:
+            self._rule_cnt += 1
+            return self._rule_cnt
 
-    @classmethod
-    @db_session
-    def GETINSERT(cls, meta: dict, type: str) -> RuleOrConfig:
-        """Get an object ID from the DB if exists; otherwise first create it."""
-        assert (
-            "inputs" in meta
-        ), "The meta information about the rule must contain `inputs` dictionary, even if empty."
-        _meta = json.dumps(meta, sort_keys=True)
-        rule = cls.get(_meta=_meta, type=type)
-        commit()
-        if rule is None:
-            rule = cls(_meta=_meta, type=type)
-            commit()
-        return rule
+        rule = Rule.GETINSERT(**{name: node.location for name, node in inputs.items()})
+        # Rule's are thefore indexed by their serialized argument indices.
+        return rule.id
 
-    @classmethod
-    @db_session
-    def GETCONFIG(cls, path: str, type: str):
-        path = Path.GET(path=path, type=type)
-        return cls[path.rule_or_config_id].get_config(type)
+    def get_outputs(
+        self,
+        inputs: dict[str, snakemake.rules.Node],
+        expected_outputs: tuple[snakemaketools.rules.Node, ...],
+    ) -> tuple[snakemaketools.rules.Node, ...]:
+        """Create output nodes for a given rule."""
+        rule_id = self.get_rule_id(inputs=inputs)
+        try:
+            outputs = []
+            for expected_output in expected_outputs:
+                node = expected_output.copy()
+                node.location = node.location.format(
+                    rule_id=rule_id
+                )  # node.location might not contain a wildcard for rule_id.
+                if self._register_in_db:
+                    Node.GETINSERT(**dict(node))
+                outputs.append(node)
+            return tuple(outputs)
+        except Exception as e:
+            self._rule_cnt -= 1  # roll back
+            raise e
 
-
-# def add_rule_and_paths_to_DB(
-#     type: str,
-#     inputs: dict,
-#     outputs: dict,
-#     # _output_path_make: lambda path, rule: path.format(rule_id=rule.id),
-#     **meta,
-# ) -> DotDict:
-#     meta["inputs"] = inputs
-#     rule = RuleOrConfig.GETINSERT(meta=meta, type=type)
-#     output_paths = DotDict()
-#     for output_name, output in outputs.items():
-#         output_paths[output_name] = Path.GETINSERT(
-#             # path=output["path"].format(rule_id=rule.id),
-#             path=output["path"].format(rule_id=rule.id, **meta),
-#             type=output["type"],
-#             rule_or_config=rule,
-#         )
-#     return output_paths
+    def get_parent_nodes(
+        self,
+        location: str,
+    ) -> DotDict[str, snakemaketools.rules.Node]:
+        """Used in Snakemake DAG construction."""
+        return DotDict(
+            {
+                node_name: self.node_factory(**node_kwargs)
+                for node_name, node_kwargs in Node.GET(location)
+                .get_parent_nodes()
+                .items()
+            }
+        )
