@@ -15,27 +15,19 @@ import toml
 from pony.orm import (Database, Optional, PrimaryKey, Required, Set, commit,
                       composite_index, db_session, set_sql_debug)
 
+import snakemaketools.rules
 # from midia_pipe_hull.pipelines.base import fill_DB_with_paths
 from snakemaketools.datastructures import DotDict
-from snakemaketools.models2 import db
-from snakemaketools.rules import Path, Root, Rule
+from snakemaketools.encodings import partial_format
+from snakemaketools.models2 import *
 
 # from snakemaketools.rules import Path, PathStorage, Root, Rule
-
-
 
 
 set_sql_debug()
 db.bind(provider='sqlite', filename=':memory:', create_db=True)
 # db.bind(provider='sqlite', filename='/home/matteo/Projects/midia/pipelines/devel/midia_pipe/base.sqlite', create_db=True)
 db.generate_mapping(create_tables=True)
-
-
-db_path_storage = DBPathStorage()
-
-
-
-# seems we do not need distinction between Rule and RuleType.
 
 
 dataset = "G8027"
@@ -49,7 +41,132 @@ with open(f"configs/consolidated/{config}.toml", "r") as f:
     # pprint(config)
 subconfigs = CONFIG["subconfigs"]
 
-subconfigs["tims_precursor_clustering_config"]["config"]
+list(subconfigs)
+
+config = dict(
+    register_dataset = dict(
+        expected_inputs=dict(),
+        expected_outputs=[
+            dict(data_type="raw_data", location="spectra/{dataset}.d"),
+            dict(data_type="sqlite", location="spectra/{dataset}.d/analysis.tdf"),
+            dict(data_type="tdf_bin", location="spectra/{dataset}.d/analysis.tdf_bin"),
+        ],
+    ),
+    register_calibration = dict(
+        expected_inputs=dict(),
+        expected_outputs=[
+            dict(data_type="raw_data", location="spectra/{dataset}.d"),
+            dict(data_type="sqlite", location="spectra/{dataset}.d/analysis.tdf"),
+            dict(data_type="tdf_bin", location="spectra/{dataset}.d/analysis.tdf_bin"),
+        ],
+    ),
+    register_fasta = dict(
+        expected_inputs=dict(),
+        expected_outputs=[
+            dict(data_type="fasta", location="fastas/{fasta}.fasta"),
+        ],
+    ),
+    get_tims_precursor_clustering_config=dict(
+        expected_inputs=dict(),
+        expected_outputs=[
+            dict(
+                data_type="tims_precursor_clustering_config",
+                location="tmp/configs/tims_precursor_clustering_config/{rule_id}.config",
+            ),
+        ],
+    ),
+    get_tims_fragment_clustering_config=dict(
+        expected_inputs=dict(),
+        expected_outputs=[
+            dict(
+                data_type="tims_fragment_clustering_config",
+                location="tmp/configs/tims_fragment_clustering_config/{rule_id}.config",
+            ),
+        ],
+    ),
+    get_precursor_cluster_stats_config=dict(
+        expected_inputs=dict(),
+        expected_outputs=[
+            dict(
+                data_type="precursor_cluster_stats_configl",
+                location="tmp/configs/precursor_cluster_stats_config/{rule_id}.toml",
+            ),
+        ],
+    ),
+    get_fragment_cluster_stats_config=dict(
+        expected_inputs=dict(),
+        expected_outputs=[
+            dict(
+                data_type="fragment_cluster_stats_config",
+                location="tmp/configs/fragment_cluster_stats_config/{rule_id}.toml",
+            ),
+        ],
+    ),
+    get_matching_config=dict(
+        expected_inputs=dict(),
+        expected_outputs=[
+            dict(
+                data_type="matching_config",
+                location="tmp/configs/matching_config/{rule_id}.toml",
+            )
+        ],
+    ),
+)
+# problem: sometimes we might want to change the location inside of the pipeline? Like when? Like if we make another fasta file?
+# but that's simple: use a different path for those rules
+# in general: if we will have only one general rule, this problem will disappear.
+# TODO: cool idea: make a script that checks for the all constrained occurences of an object in a database.
+# TODO: make a scipt that given a path, reports back all of the steps needed to make this. But for that: we will need the rules to actually save their names.
+
+node_storage = SimplePonyNodeStorage(register_in_db=False)
+rules = DotDict()
+for rule_name, subconfig in config.items(): 
+    rules[rule_name] = snakemaketools.rules.Rule(
+        node_storage=node_storage,
+        expected_inputs=DotDict(subconfig["expected_inputs"]),
+        expected_outputs=tuple(
+            node_storage.node_factory(**expected_output)
+            for expected_output in subconfig["expected_outputs"]
+        )
+    )
+
+# OK, how to disern simply dataset from calibration while calling a function? The expected node would have to differentiate things.
+# ANSWER: Unfortunately explicitly store each entry. OR modify Rule.__call__ to accept strings? Or expected outputs must be modified. but that's exactly what we did in the config. So it must be left the way we did it. Bingo!
+
+root_wildcards = dict(
+    dataset = "G8027",
+    calibration = "G8045",
+    fasta = "Human_2024_02_16_UniProt_Taxon9606_Reviewed_20434entries_contaminant_tenzer",
+)
+
+# adding wildcards
+for rule in rules.values():
+    for expected_output in rule.expected_outputs:
+        expected_output.location = partial_format(string=expected_output.location, **root_wildcards) 
+
+
+# OK, so that seems solved finally
+
+rules["register_dataset"].expected_outputs
+rules["register_fasta"]
+
+
+
+
+node_storage.get_rule_id(inputs={})
+# OK, now we need to implement some fasta and raw_data: dataset + calibration
+
+
+rule = Rule(
+    node_storage, 
+    expected_inputs=DotDict(),
+)
+
+isinstance(Storable[1], Rule)
+
+# seems we do not need distinction between Rule and RuleType.
+
+
 
 
 register_raw_data = dict(
@@ -73,64 +190,6 @@ def register_fasta(fasta: str) -> Path:
 
 # the same for every other config
 
-roots_config = dict(
-    register_raw_data = dict(
-        expected_outputs=dict(
-            folder_d=dict(type="raw_data", path="spectra/{}.d"),
-            analysis_tdf=dict(type="sqlite", path="spectra/{}.d/analysis.tdf"),
-            analysis_tdf_bin=dict(type="tdf_bin", path="spectra/{}.d/analysis.tdf_bin"),
-        )
-    ),
-    register_fasta = dict(
-        expected_outputs=dict(
-            fasta=dict(type="fasta", path="fastas/{}.fasta"),
-        )
-    ),
-    get_tims_precursor_clustering_config=dict(
-        expected_inputs=dict(),
-        expected_outputs=dict(
-            tims_precursor_clustering_config=dict(
-                name="tims_precursor_clustering_config",
-                path_template="tmp/configs/tims_precursor_clustering_config/{}.config",
-            ),
-        ),
-    ),
-    get_tims_fragment_clustering_config=dict(
-        expected_inputs=dict(),
-        expected_outputs=dict(
-            tims_fragment_clustering_config=dict(
-                name="tims_fragment_clustering_config",
-                path_template="tmp/configs/tims_fragment_clustering_config/{}.config",
-            )
-        ),
-    ),
-    get_precursor_cluster_stats_config=dict(
-        expected_inputs=dict(),
-        expected_outputs=dict(
-            precursor_cluster_stats_config=dict(
-                name="precursor_cluster_stats_configl",
-                path_template="tmp/configs/precursor_cluster_stats_config/{}.toml",
-            )
-        ),
-    ),
-    get_fragment_cluster_stats_config=dict(
-        expected_inputs=dict(),
-        expected_outputs=dict(
-            name="fragment_cluster_stats_config",
-            path_template="tmp/configs/fragment_cluster_stats_config/{}.toml",
-        ),
-    ),
-    get_matching_config=dict(
-        expected_inputs=dict(),
-        expected_outputs=dict(
-            matching_config=dict(
-                name="matching_config",
-                path_template="tmp/configs/matching_config/{}.toml",
-            )
-        ),
-    ),
-
-)
 
 
 # this should be a PathStorage methode.

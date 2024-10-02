@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import abc
+import collections.abc
+import copy
 import dataclasses
 import typing
 
@@ -12,6 +15,13 @@ class Node:
 
     data_type: str
     location: str
+
+    def __iter__(self):
+        yield "data_type", self.data_type
+        yield "location", self.location
+
+    def copy(self) -> Node:
+        return copy.deepcopy(self)
 
 
 @dataclasses.dataclass
@@ -44,21 +54,23 @@ class Rule:
             f"{input_name}: {input_type}" if input_type else input_name
             for input_name, input_type in self.expected_inputs.items()
         )
-        outputs = ", ".join(
-            f"{output_type}: {output_path_template['type']}"
-            for output_type, output_path_template in self.expected_outputs.items()
-        )
-        return f"({inputs}) -> DotDict({outputs})"
+        outputs = ", ".join(repr(output) for output in self.expected_outputs)
+        return f"CALLABLE[({inputs}) -> DotDict({outputs})]"
 
 
-class NodeStorage(typing.Protocol):
+@dataclasses.dataclass
+class NodeStorage(abc.ABC):
+    node_factory: collections.abc.Callable[..., Node] = Node
+
+    @abc.abstractmethod
     def get_outputs(
         self,
-        inputs: dict[str, snakemake.rules.Node],
+        inputs: dict[str, Node],
         expected_outputs: tuple[Node, ...],
     ) -> tuple[Node, ...]:
         """Get output nodes"""
 
+    @abc.abstractmethod
     def get_parent_nodes(self, location: str) -> DotDict[str, Node]:
         """Get nodes that lead to the creation of the current Node."""
 
