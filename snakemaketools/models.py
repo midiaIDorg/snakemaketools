@@ -1,3 +1,8 @@
+"""
+in Pony ORM: a single id is used for sublcasses: all of hierarchy is in one freaking table. so no clashes between Storable, Config, Rule, and Node instances possible if using id to get new paths.
+
+That set, direct usage of Storable.GET is impossible, whenever two subclasses would share their content.
+"""
 from __future__ import annotations
 
 import dataclasses
@@ -27,18 +32,18 @@ class Storable(db.Entity):
 
     @classmethod
     @db_session
-    def GETINSERT(cls, **content) -> Storable:
+    def GETINSERT(cls, **content) -> int:
         serialized_content = json.dumps(content, sort_keys=True)
         storable = cls.get(serialized_content=serialized_content)
         commit()
         if storable is None:
             storable = cls(serialized_content=serialized_content)
             commit()
-        return storable
+        return storable.id
 
     @classmethod
     @db_session
-    def GET(cls, **content: str) -> Storable:
+    def GET(cls, **content: str) -> int:
         """Get an object ID from the DB if exists; otherwise first create it."""
         serialized_content = json.dumps(content, sort_keys=True)
         storable = cls.get(serialized_content=serialized_content)
@@ -47,7 +52,7 @@ class Storable(db.Entity):
             raise KeyError(
                 f"There is no storable with content `{serialized_content}` in the DB."
             )
-        return storable
+        return storable.id
 
 
 class Config(Storable):
@@ -57,7 +62,7 @@ class Config(Storable):
 
 class Rule(Storable):
     def input_nodes(self) -> DotDict[str, dict]:  # order matters
-        inputs = DotDict()
+        inputs: DotDict[str, dict] = DotDict()
         for node_name, node_id in self.get_content.items():
             inputs[node_name] = Node[node_id].get_node_contents()
         return inputs
@@ -67,6 +72,7 @@ class Node(Storable):
     """Any meaningul pipeline entity."""
 
     rule_id = Optional(int)
+    config_id = Optional(int)
     # only to store info from a potential subclass of Node:
     serialized_additional_content = Optional(str)
 
@@ -91,7 +97,13 @@ class Node(Storable):
 
     @classmethod
     @db_session
-    def GETINSERT(cls, location, **additional_content) -> Storable:
+    def GETINSERT(
+        cls,
+        location,
+        rule_id=None,
+        config_id=None,
+        **additional_content,
+    ) -> int:
         serialized_content = json.dumps(
             {"location": location},
             sort_keys=True,
@@ -100,6 +112,8 @@ class Node(Storable):
         commit()
         if node is None:
             node = cls(
+                rule_id=rule_id,
+                config_id=config_id,
                 serialized_content=serialized_content,
                 serialized_additional_content=json.dumps(
                     additional_content,
@@ -107,54 +121,44 @@ class Node(Storable):
                 ),
             )
             commit()
-        return storable
+        return node.id
 
 
 @dataclasses.dataclass
 class SimplePonyNodeStorage(snakemaketools.rules.NodeStorage):
-    """Implementation of a general NodeStorage Protocol using Pony ORM.
-
-    If you don't want to use the DB but use current IN-RAM numbering scheme, pass in `_register_in_db=False` on init.
-    """
-
-    # this below offers only an ultra-dumb debugging mechanism. Do not use it.
-    _register_in_db: bool = True
-    _rule_cnt: int = -1
-
-    def get_rule_id(
-        self,
-        inputs: dict[str, snakemake.rules.Node],
-    ) -> int:
-        """Get a rule id for a given set of input nodes."""
-        if not self._register_in_db:
-            self._rule_cnt += 1
-            return self._rule_cnt
-
-        rule = Rule.GETINSERT(**{name: node.location for name, node in inputs.items()})
-        # Rule's are thefore indexed by their serialized argument indices.
-        return rule.id
+    """Implementation of a general NodeStorage Protocol using Pony ORM."""
 
     def get_outputs(
         self,
-        inputs: dict[str, snakemake.rules.Node],
+        inputs: dict[str, snakemaketools.rules.Node],
         expected_outputs: tuple[snakemaketools.rules.Node, ...],
+        config: dict | None = None,
     ) -> tuple[snakemaketools.rules.Node, ...]:
         """Create output nodes for a given rule."""
-        rule_id = self.get_rule_id(inputs=inputs)
-        try:
-            outputs = []
-            for expected_output in expected_outputs:
-                node = expected_output.copy()
-                node.location = node.location.format(
-                    rule_id=rule_id
-                )  # node.location might not contain a wildcard for rule_id.
-                if self._register_in_db:
-                    Node.GETINSERT(**dict(node))
-                outputs.append(node)
-            return tuple(outputs)
-        except Exception as e:
-            self._rule_cnt -= 1  # roll back
-            raise e
+
+        # NOTE: even if ever inputs for Config.GETINSERT and Rule.GETINSERT would
+        # coincide, that would not result in an error while calling GET of either
+        # Confir nor Rule. But would for Storable.
+        if config != None:
+            storable_id = config_id = Config.GETINSERT(**config)
+            rule_id = None
+        else:
+            storable_id = rule_id = Rule.GETINSERT(
+                **{name: node.location for name, node in inputs.items()}
+            )
+            config_id = None
+
+        outputs = []
+        for expected_output in expected_outputs:
+            node = expected_output.copy()
+            node.location = node.location.format(id=storable_id)
+            Node.GETINSERT(
+                rule_id=rule_id,
+                config_id=config_id,
+                **dict(node),
+            )
+            outputs.append(node)
+        return tuple(outputs)
 
     def get_parent_nodes(
         self,
@@ -164,7 +168,7 @@ class SimplePonyNodeStorage(snakemaketools.rules.NodeStorage):
         return DotDict(
             {
                 node_name: self.node_factory(**node_kwargs)
-                for node_name, node_kwargs in Node.GET(location)
+                for node_name, node_kwargs in Node.GET(location=location)
                 .get_parent_nodes()
                 .items()
             }

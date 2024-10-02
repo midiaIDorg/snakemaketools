@@ -4,6 +4,7 @@ import abc
 import collections.abc
 import copy
 import dataclasses
+import functools
 import typing
 
 from snakemaketools.datastructures import DotDict
@@ -13,7 +14,7 @@ from snakemaketools.datastructures import DotDict
 class Node:
     """An object representing an entity used in the pipeline."""
 
-    data_type: str
+    data_type: str | None  # None = no special data type # think of using typing system
     location: str
 
     def __iter__(self):
@@ -26,36 +27,44 @@ class Node:
 
 @dataclasses.dataclass
 class Rule:
+    name: str
     node_storage: NodeStorage
     expected_inputs: DotDict[str, Node]
     expected_outputs: tuple[Node, ...]
+    expect_config_when_called: bool = False
 
-    def __call__(self, **inputs: Node) -> tuple[Node]:
+    def __call__(
+        self, config: dict | None = None, **inputs: Node
+    ) -> tuple[Node, ...] | Node:
+        assert not (
+            self.expect_config_when_called and config == None
+        ), f"Call of rule `{self.rule}` expects a config but you did not provide it, or provided None."
+
         for node_name, node in inputs.items():
             assert (
                 node_name in self.expected_inputs
             ), f"Node `{node_name}` not among expected inputs: `{self.expected_inputs}`."
 
-            expected_data_type = self.expected_inputs[in_path_name].data_type
-            assert (
-                node.data_type == expected_data_type
-            ), f"Types mismatch: `{node_name}` is of type `{node.data_type}`. Its expected type is `{expected_data_type}`."
+            expected_data_type = self.expected_inputs[node_name].data_type
+
+            if expected_data_type != None:
+                assert (
+                    node.data_type == expected_data_type
+                ), f"Types mismatch: `{node_name}` is of type `{node.data_type}`. Its expected type is `{expected_data_type}`."
 
         for expected_input in self.expected_inputs:
             assert expected_input in inputs, f"Missing input `{expected_input}`."
 
-        return self.node_storage.get_outputs(
+        outputs = self.node_storage.get_outputs(
             inputs=inputs,
             expected_outputs=self.expected_outputs,
+            config=config,
         )
 
-    def __repr__(self) -> str:
-        inputs = ", ".join(
-            f"{input_name}: {input_type}" if input_type else input_name
-            for input_name, input_type in self.expected_inputs.items()
-        )
-        outputs = ", ".join(repr(output) for output in self.expected_outputs)
-        return f"CALLABLE[({inputs}) -> DotDict({outputs})]"
+        if len(outputs) == 1:
+            return outputs[0]
+
+        return outputs
 
 
 @dataclasses.dataclass
@@ -67,6 +76,7 @@ class NodeStorage(abc.ABC):
         self,
         inputs: dict[str, Node],
         expected_outputs: tuple[Node, ...],
+        config: dict | None = None,
     ) -> tuple[Node, ...]:
         """Get output nodes"""
 

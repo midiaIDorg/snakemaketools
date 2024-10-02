@@ -1,7 +1,11 @@
+# TODO: cool idea: make a script that checks for the all constrained occurences of an object in a database.
+# TODO: make a scipt that given a path, reports back all of the steps needed to make this. But for that: we will need the rules to actually save their names.
+
 %load_ext autoreload
 %autoreload 2
 from __future__ import annotations
 
+import copy
 import dataclasses
 import pathlib
 import typing
@@ -9,25 +13,21 @@ from abc import ABC, abstractmethod
 from functools import partial
 from pprint import pprint
 from types import SimpleNamespace
-from typing import Callable, Protocol
 
 import toml
 from pony.orm import (Database, Optional, PrimaryKey, Required, Set, commit,
                       composite_index, db_session, set_sql_debug)
 
 import snakemaketools.rules
-# from midia_pipe_hull.pipelines.base import fill_DB_with_paths
 from snakemaketools.datastructures import DotDict
 from snakemaketools.encodings import partial_format
 from snakemaketools.models import *
 
-# from snakemaketools.rules import Path, PathStorage, Root, Rule
-
-
-set_sql_debug()
+# set_sql_debug()
 db.bind(provider='sqlite', filename=':memory:', create_db=True)
 # db.bind(provider='sqlite', filename='/home/matteo/Projects/midia/pipelines/devel/midia_pipe/base.sqlite', create_db=True)
 db.generate_mapping(create_tables=True)
+
 
 
 dataset = "G8027"
@@ -36,106 +36,190 @@ fasta = "Human_2024_02_16_UniProt_Taxon9606_Reviewed_20434entries_contaminant_te
 config = "default"
 pipeline = "base"
 
-with open(f"configs/consolidated/{config}.toml", "r") as f:
-    CONFIG = toml.load(f)
-    # pprint(config)
-subconfigs = CONFIG["subconfigs"]
+with open(f"configs/consolidated/default.toml", "r") as f:
+    consolidated_config = toml.load(f)
+subconfigs = copy.deepcopy(consolidated_config["subconfigs"])
 
-list(subconfigs)
-
-config = dict(
-    register_dataset = dict(
+rule_config = dict(
+    insert_dataset = dict(
         expected_inputs=dict(),
         expected_outputs=[
-            dict(data_type="raw_data", location="spectra/{dataset}.d"),
+            dict(data_type="folder_d", location="spectra/{dataset}.d"),
             dict(data_type="sqlite", location="spectra/{dataset}.d/analysis.tdf"),
             dict(data_type="tdf_bin", location="spectra/{dataset}.d/analysis.tdf_bin"),
         ],
+        expect_config_when_called=False,
     ),
-    register_calibration = dict(
+    insert_calibration = dict(
         expected_inputs=dict(),
         expected_outputs=[
-            dict(data_type="raw_data", location="spectra/{dataset}.d"),
+            dict(data_type="folder_d", location="spectra/{dataset}.d"),
             dict(data_type="sqlite", location="spectra/{dataset}.d/analysis.tdf"),
             dict(data_type="tdf_bin", location="spectra/{dataset}.d/analysis.tdf_bin"),
         ],
+        expect_config_when_called=False,
     ),
-    register_fasta = dict(
+    insert_fasta = dict(
         expected_inputs=dict(),
         expected_outputs=[
             dict(data_type="fasta", location="fastas/{fasta}.fasta"),
         ],
+        expect_config_when_called=False,
     ),
-    get_tims_precursor_clustering_config=dict(
+    insert_tims_precursor_clustering_config=dict(
         expected_inputs=dict(),
         expected_outputs=[
             dict(
                 data_type="tims_precursor_clustering_config",
-                location="tmp/configs/tims_precursor_clustering_config/{rule_id}.config",
+                location="tmp/configs/tims_precursor_clustering_config/{id}.config",
             ),
         ],
+        expect_config_when_called=True,
     ),
-    get_tims_fragment_clustering_config=dict(
+    insert_tims_fragment_clustering_config=dict(
         expected_inputs=dict(),
         expected_outputs=[
             dict(
                 data_type="tims_fragment_clustering_config",
-                location="tmp/configs/tims_fragment_clustering_config/{rule_id}.config",
+                location="tmp/configs/tims_fragment_clustering_config/{id}.config",
             ),
         ],
+        expect_config_when_called=True,
     ),
-    get_precursor_cluster_stats_config=dict(
+    insert_precursor_cluster_stats_config=dict(
         expected_inputs=dict(),
         expected_outputs=[
             dict(
                 data_type="precursor_cluster_stats_config",
-                location="tmp/configs/precursor_cluster_stats_config/{rule_id}.toml",
+                location="tmp/configs/precursor_cluster_stats_config/{id}.toml",
             ),
         ],
+        expect_config_when_called=True,
     ),
-    get_fragment_cluster_stats_config=dict(
+    insert_fragment_cluster_stats_config=dict(
         expected_inputs=dict(),
         expected_outputs=[
             dict(
                 data_type="fragment_cluster_stats_config",
-                location="tmp/configs/fragment_cluster_stats_config/{rule_id}.toml",
+                location="tmp/configs/fragment_cluster_stats_config/{id}.toml",
             ),
         ],
+        expect_config_when_called=True,
     ),
-    get_matching_config=dict(
+    insert_matching_config=dict(
         expected_inputs=dict(),
         expected_outputs=[
             dict(
                 data_type="matching_config",
-                location="tmp/configs/matching_config/{rule_id}.toml",
+                location="tmp/configs/matching_config/{id}.toml",
             )
         ],
+        expect_config_when_called=True,
+    ),
+    insert_baseline_removal_config=dict(
+        expected_inputs=dict(),
+        expected_outputs=[
+            dict(
+                data_type="baseline_removal_config",
+                location="tmp/configs/baseline_removal_config/{id}.toml",
+            )
+        ],
+        expect_config_when_called=True,
+    ),
+    remove_raw_data_baseline = dict(
+        expected_inputs=dict(
+            raw_data="folder_d",
+            config="baseline_removal_config",
+        ),
+        expected_outputs=[
+            dict(
+                data_type = "folder_d",
+                location = "tmp/spectra/no_baseline/{id}.d",
+            ),
+            dict(
+                data_type = "sqlite",
+                location="tmp/spectra/no_baseline/{id}.d/analysis.tdf",
+            ),
+            dict(
+                data_type = "tdf_bin",
+                location = "tmp/spectra/no_baseline/{id}.d/analysis.tdf_bin",
+            ),
+        ],
+        expect_config_when_called=False,
+    ),
+    hash256 = dict(
+        expected_inputs=dict(path_template=None),
+        expected_outputs=[
+            dict(
+                data_type = "sha256",
+                location = "tmp/hashes/{id}.sha256",
+            ),
+        ],
+        expect_config_when_called=False,
+    ),
+    report_if_dataset_and_calibration_comply = dict(
+        expected_inputs = dict(
+            dataset = "folder_d",
+            calibration = "folder_d",
+        ),
+        expected_outputs = [
+            dict(
+                data_type = "dataset_matches_calibration_assertion",
+                location = "tmp/assertions/dataset_matches_calibration/{id}.d"
+            )
+        ],
+        expect_config_when_called=False,
+    ),
+    insert_tims_executable = dict(
+        expected_inputs = dict(),
+        expected_outputs = [
+            dict(
+                data_type="tims_executable",
+                location="tmp/executables/{id}",
+            )
+        ],
+        expect_config_when_called=False,
     ),
 )
-# problem: sometimes we might want to change the location inside of the pipeline? Like when? Like if we make another fasta file?
-# but that's simple: use a different path for those rules
-# in general: if we will have only one general rule, this problem will disappear.
-# TODO: cool idea: make a script that checks for the all constrained occurences of an object in a database.
-# TODO: make a scipt that given a path, reports back all of the steps needed to make this. But for that: we will need the rules to actually save their names.
 
-node_storage = SimplePonyNodeStorage(_register_in_db=False)
+node_storage = SimplePonyNodeStorage()
+
 rules = DotDict()
-for rule_name, subconfig in config.items(): 
+for rule_name, rule_subconfig in rule_config.items():
     rules[rule_name] = snakemaketools.rules.Rule(
+        name=rule_name,
         node_storage=node_storage,
-        expected_inputs=DotDict(subconfig["expected_inputs"]),
+        expected_inputs=DotDict(rule_subconfig["expected_inputs"]),
         expected_outputs=tuple(
             node_storage.node_factory(**expected_output)
-            for expected_output in subconfig["expected_outputs"]
+            for expected_output in rule_subconfig["expected_outputs"]
         )
     )
 
-# OK, how to disern simply dataset from calibration while calling a function? The expected node would have to differentiate things.
-# ANSWER: Unfortunately explicitly store each entry. OR modify Rule.__call__ to accept strings? Or expected outputs must be modified. but that's exactly what we did in the config. So it must be left the way we did it. Bingo!
 
-# question: why do we even distinguish between configs and this here.
-# for convenience: this could also be some config.
-# this config could be modified by another script and that's it then.
+# will need to adjust some rules to deal with .toml only configs.
+c = rules.insert_tims_precursor_clustering_config(
+    subconfigs["tims_precursor_clustering_config"],
+)
+
+
+n = Node.GET(location=c.location)
+Node[n].rule_id
+Node[n].config_id
+
+
+Storable[1].get_content()
+Storable[2]
+
+Rule[1].get_content()
+# def get_pipeline_paths(
+#     subconfigs: dict,
+#     rules,
+#     fasta: str,
+#     # defaults
+#     calibration: str = "",  # "" == using Bruker windows
+# ) -> DotDict:
+
 root_wildcards = dict(
     dataset = "G8027",
     calibration = "G8045",
@@ -147,200 +231,32 @@ for rule in rules.values():
     for expected_output in rule.expected_outputs:
         expected_output.location = partial_format(string=expected_output.location, **root_wildcards) 
 
-# OK, so that seems solved finally
-dataset, rules.register_dataset()
-rules.register_fasta()
-
-
-
-register_raw_data = dict(
-    expected_outputs=dict(
-        folder_d=dict(type="raw_data", path="spectra/{}.d"),
-        analysis_tdf=dict(type="sqlite", path="spectra/{}.d/analysis.tdf"),
-        analysis_tdf_bin=dict(type="tdf_bin", path="spectra/{}.d/analysis.tdf_bin"),
-    )
-)
-# turn that into a function? without reusing Rule?
-
-def register_raw_data(dataset: str) -> tuple[Path,Path,Path]:
-    folder_d = Path(data_type="raw_data", location=f"spectra/{dataset}.d")
-    analysis_tdf = Path(data_type="analysis_tdf", location=f"spectra/{dataset}/analysis.tdf")
-    analysis_tdf_bin = Path(data_type="analysis_tdf_bin", location=f"spectra/{dataset}/analysis.tdf_bin")
-    return folder_d, analysis_tdf, analysis_tdf_bin
-
-def register_fasta(fasta: str) -> Path:
-    fasta = Path(data_type="fasta", location=f"fastas/{fasta}.fasta")
-    return fasta
-
-# the same for every other config
-
-
-
-# this should be a PathStorage methode.
-def get_config(meta) -> Path:
-
-
-
-# also: roots won't be reused? of course they will: dataset + calibration
-@dataclasses.dataclass
-class RootsRule:
-    rule_type: str
-    expected_outputs: DotDict[str, str]
-    path_storage: PathStorage
-
-    def __call__(self, meta: dict) -> DotDict[str, Path]:
-        return tuple(
-            Path(data_type=data_type, location=)
-            for _, data_type in self.expected_outputs
-        )
-
-
-
-# w sumie, to czemu potrzebuję tych klass , skoro to de-facto wrappery na PathStorage??? Czy tak istotnie jest?
-# Tylko po to, żeby unikać wywołań zależnych od root_type i rule_type i mieć `funkcje`.
-# Te checki z Rule.__call__ dać do PathStorega.output_paths? nie można: bo to nie powinno nic wiedzieć o inputach. Jak jest, jest OK.
-
-
-
-
-
-# Question: how to pass in the version of the software? Tims must be specified alongside other configs? No, better: simply one of the inputs should contain the proper path. But when is it passed in? Likely in the pipeline function: this is where we have access to configs anyway.
-# OK, so the pipeline should get the consolidated config and decide upon all of that. It anyway needs to read in the configs below that specify the rules too.
-# so a pipeline will get 2 files.
-
-# try to write some rules for the configs.
-
-config = dict(
-    path_types=dict(
-        raw_data
-    )
-)
-
-
-rule_config = dict(
-    remove_raw_data_baseline = dict(
-        expected_inputs=dict(
-            raw_data="folder_d",
-            config="baseline_removal_config",
-        ),
-        expected_outputs=dict(
-            folder_d = dict(
-                name = "raw_data",
-                folder_d = "tmp/spectra/no_baseline/{rule_id}.d",
-            ),
-            analysis_tdf = dict(
-                name = "sqlite",
-                path_template="tmp/spectra/no_baseline/{rule_id}.d/analysis.tdf",
-            ),
-            analysis_tdf_bin = dict(
-                name = "tdf_bin",
-                path = "tmp/spectra/no_baseline/{rule_id}.d/analysis.tdf_bin",
-            ),
-        ),
-    ),
-    hash256 = dict(
-        expected_inputs=dict(
-            path_template="", # empty = no specific type
-        ),
-        expected_outputs=dict(
-            hashfile = dict(
-                name = "sha256",
-                path = "tmp/hashes/{rule.id}.sha256",
-            ),
-        ),
-    ),
-    report_if_dataset_and_calibration_comply = dict(
-        expected_inputs = dict(
-            dataset = "raw_data",
-            calibration = "raw_data",
-        ),
-        expected_outputs = dict(
-            dataset_matches_calibration_assertion = dict(
-                name = "dataset_matches_calibration_assertion",
-                path = "tmp/assertions/dataset_matches_calibration/{rule.id}.d"
-            )
-        ),
-    ),
-    get_tims_executable = dict(
-        expected_inputs = dict(),
-        expected_outputs = dict(
-            tims_executable=dict(
-                name="tims_executable",
-                path_template="tmp/executables/{rule_id}",
-            )
-        ),
-    ),
-)
-
-
-
-with open("configs/rules/default.toml", "w") as f:
-    toml.dump(rule_config, f)
-
-# r = Rule(outputs_maker=lambda x:x, rule_type="hash256", **rule_config["hash256"])
-# r
-
-# for rule_name, subconfig in config.items():
-
-rules = parse_rules(rule_config, lambda x:x)
-
-
-# def register_fasta(fasta: str) -> Path:
-#     rule = RuleOrConfig.GETINSERT(
-#         meta=dict(fasta=fasta, inputs={}),
-#         type="register_fasta",
-#     )
-#     fasta = Path.GETINSERT(
-#         path=f"fastas/{fasta}.fasta",
-#         type="fasta",
-#         rule_or_config=rule,
-#     )
-#     return fasta
-
-
-# def register_tdf_rawdata(rawdata_tdf: str) -> tuple[Path, Path, Path]:
-#     rule = RuleOrConfig.GETINSERT(
-#         meta=dict(rawdata_tdf=rawdata_tdf, inputs={}),
-#         type="register_tdf_rawdata",
-#     )
-#     folder_d = Path.GETINSERT(
-#         path=f"spectra/{rawdata_tdf}.d",
-#         type="raw_data",
-#         rule_or_config=rule,
-#     )
-#     analysis_tdf = Path.GETINSERT(
-#         path=f"spectra/{rawdata_tdf}.d/analysis.tdf",
-#         type="analysis_tdf",
-#         rule_or_config=rule,
-#     )
-#     analysis_tdf_bin = Path.GETINSERT(
-#         path=f"spectra/{rawdata_tdf}/analysis.tdf_bin",
-#         type="tdf_bin",
-#         rule_or_config=rule,
-#     )
-#     return folder_d, analysis_tdf, analysis_tdf_bin
-
+# pipeline
 paths = DotDict()
-paths.fasta = register_fasta(fasta=fasta_str)
 
+paths.fasta = rules.insert_fasta()
 
-
-
-fasta = register_fasta(fasta=fasta_str)
-fasta.parent_paths()
-fasta.path
+for 
 
 (
     paths.dataset,
     paths.dataset_analysis_tdf,
     paths.dataset_analysis_tdf_bin,
-) = rules.register_raw_data(raw_data=dataset_str)
+) = rules.insert_dataset()
+
+
+
+
+(
+    paths.calibration,
+    paths.calibration_analysis_tdf,
+    paths.calibration_analysis_tdf_bin,
+) = rules.insert_calibration()
 
 paths.dataset_analysis_tdf_hash = hash256(paths.dataset_analysis_tdf)
 paths.dataset_analysis_tdf_bin_hash = hash256(paths.dataset_analysis_tdf_bin)
 paths.dataset_marginals_plots = raw_data_marginals_plots_folder(paths.dataset)
 
-# OK, somewhere we need to use the path_templates
 
 
 
@@ -362,107 +278,7 @@ paths = fill_DB_with_paths(subconfigs=subconfigs, dataset=dataset, calibration=c
 path_ids = {k: node.id for k, node in paths.items() if node != None}
 wishes = {wish: path_ids[wish] for wish in CONFIG["wishlist"]} 
 
-with db_session:
-    rule = RuleOrConfig.GETINSERT(
-        meta=dict(
-            inputs=wishes,
-            path_ids=path_ids,
-            kwargs=dict(dataset=dataset, calibration=calibration, fasta=fasta, config=CONFIG, pipeline=pipeline,)
-        ),
-        type=f"populating_DB",
-    )
-    path = Path.GETINSERT(
-        path=f"tmp/populating_DB/{rule.id}.toml",
-        type=f"populating_DB",
-        rule_or_config=rule,
-    )
 
-
-
-mapping_path = pathlib.Path(f"tmp/pipelines/{path.id}.toml")
-mapping_path.parent.mkdir(exist_ok=True, parents=True)
-
-
-
-with open(mapping_path, "w") as f:
-    toml.dump(wishes, f)
-# later on, some other programme can pass on the path_id.
-
-
-
-
-paths["fasta"].path
-
-paths["dataset"].parent_paths()
-paths["dataset_analysis_tdf_hash"].parent_paths()
-paths["dataset_analysis_tdf_hash"].path
-
-paths["dataset"].path
-
-# would be nice to put some meta info during the run into the DB. 
-# like runtime.
-
-# how to pass in calibration=None?
-# how to pass in a fasta?
-
-# subconfig_name, subconfig = next(iter(config["subconfigs"].items()))
-
-
-# likely one rule should output that and the chosen things
-# another shoud take it as input and produce the final thing.
-
-
-Node[1].origin
-Node[1].type
-Node[1].id
-Node[1].extension
- 
-
-
-# simpler solution: use raw strings.
-
-Node[3].origin
-Node[16].origin
-Node[19].origin
-Node[17].origin
-Node[17].type
-
-
-wildcards = SimpleNamespace(extension="toml")
-
-node = Node[int(7)]
-assert wildcards.extension == node.origin["extension"]
-with
-node.origin["config"]
-
-Node[22].origin
-
-
-# OK, this is really awesome: there will be no distinction between the configs made automatically and those we provide.
-
-
-# should the consolidated config contain any paths or not? 
-# It cannot now: snakemake might not know where to search for stuff.
-# if it does not have it though, how would we call the outputs?
-# again some convention likely necessary:
-# where to store things?
-
-# awesome: so pipeline can create the config roots.
-# what about the other roots?
-# this looks like a good place for softlinks.
-
-
-
-# 
-
-# what about the other things?
-# dataset
-# calibration (optional)
-# fasta (1 and 2)
-
-# what about if we want to test multiple configs?
-# that's error prone: we could do it, but there won't be clear cut answer what was run.
-# what about control flow?
 
 
 
