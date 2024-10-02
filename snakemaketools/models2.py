@@ -125,10 +125,11 @@ class Node(Storable):
 class SimplePonyNodeStorage(snakemaketools.rules.NodeStorage):
     """Implementation of a general NodeStorage Protocol using Pony ORM.
 
-    If you don't want to use the DB but use current IN-RAM numbering scheme, pass in `register_in_db=False` on init.
+    If you don't want to use the DB but use current IN-RAM numbering scheme, pass in `_register_in_db=False` on init.
     """
 
-    register_in_db: bool = True
+    # this below offers only an ultra-dumb debugging mechanism. Do not use it.
+    _register_in_db: bool = True
     _rule_cnt: int = -1
 
     def get_rule_id(
@@ -136,7 +137,7 @@ class SimplePonyNodeStorage(snakemaketools.rules.NodeStorage):
         inputs: dict[str, snakemake.rules.Node],
     ) -> int:
         """Get a rule id for a given set of input nodes."""
-        if not self.register_in_db:
+        if not self._register_in_db:
             self._rule_cnt += 1
             return self._rule_cnt
 
@@ -158,7 +159,7 @@ class SimplePonyNodeStorage(snakemaketools.rules.NodeStorage):
                 node.location = node.location.format(
                     rule_id=rule_id
                 )  # node.location might not contain a wildcard for rule_id.
-                if self.register_in_db:
+                if self._register_in_db:
                     Node.GETINSERT(**dict(node))
                 outputs.append(node)
             return tuple(outputs)

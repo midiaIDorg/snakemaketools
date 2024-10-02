@@ -88,7 +88,7 @@ config = dict(
         expected_inputs=dict(),
         expected_outputs=[
             dict(
-                data_type="precursor_cluster_stats_configl",
+                data_type="precursor_cluster_stats_config",
                 location="tmp/configs/precursor_cluster_stats_config/{rule_id}.toml",
             ),
         ],
@@ -133,38 +133,23 @@ for rule_name, subconfig in config.items():
 # OK, how to disern simply dataset from calibration while calling a function? The expected node would have to differentiate things.
 # ANSWER: Unfortunately explicitly store each entry. OR modify Rule.__call__ to accept strings? Or expected outputs must be modified. but that's exactly what we did in the config. So it must be left the way we did it. Bingo!
 
+# question: why do we even distinguish between configs and this here.
+# for convenience: this could also be some config.
+# this config could be modified by another script and that's it then.
 root_wildcards = dict(
     dataset = "G8027",
     calibration = "G8045",
     fasta = "Human_2024_02_16_UniProt_Taxon9606_Reviewed_20434entries_contaminant_tenzer",
 )
 
-# adding wildcards
+# fill with root_wildcards
 for rule in rules.values():
     for expected_output in rule.expected_outputs:
         expected_output.location = partial_format(string=expected_output.location, **root_wildcards) 
 
-
 # OK, so that seems solved finally
-
-rules["register_dataset"].expected_outputs
-rules["register_fasta"]
-
-
-
-
-node_storage.get_rule_id(inputs={})
-# OK, now we need to implement some fasta and raw_data: dataset + calibration
-
-
-rule = Rule(
-    node_storage, 
-    expected_inputs=DotDict(),
-)
-
-isinstance(Storable[1], Rule)
-
-# seems we do not need distinction between Rule and RuleType.
+rules.register_dataset
+rules.register_fasta
 
 
 
