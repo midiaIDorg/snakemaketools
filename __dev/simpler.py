@@ -30,9 +30,9 @@ from snakemaketools.models import *
 
 # set_sql_debug()
 
-db.bind(provider='sqlite', filename=':memory:', create_db=True)
+# db.bind(provider='sqlite', filename=':memory:', create_db=True)
 
-# db.bind(provider='sqlite', filename='/home/matteo/Projects/midia/pipelines/devel/midia_pipe/base.sqlite', create_db=True)
+db.bind(provider='sqlite', filename='/home/matteo/Projects/midia/pipelines/devel/midia_pipe/base.sqlite', create_db=True)
 
 db.generate_mapping(create_tables=True)
 

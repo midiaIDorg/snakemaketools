@@ -60,7 +60,7 @@ class Rule:
         outputs = self.node_storage.get_outputs(
             inputs=inputs,
             expected_outputs=self.expected_outputs,
-            config=None,
+            config=config,
         )
 
         if len(outputs) == 1:

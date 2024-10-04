@@ -111,14 +111,17 @@ class Node(Storable):
         node = cls.get(serialized_content=serialized_content)
         commit()
         if node is None:
+            serialized_additional_content = None
+            if len(additional_content):
+                serialized_additional_content = json.dumps(
+                    additional_content,
+                    sort_keys=True,
+                )
             node = cls(
                 rule_id=rule_id,
                 config_id=config_id,
                 serialized_content=serialized_content,
-                serialized_additional_content=json.dumps(
-                    additional_content,
-                    sort_keys=True,
-                ),
+                serialized_additional_content=serialized_additional_content,
             )
             commit()
         return node.id
@@ -170,6 +173,7 @@ class SimplePonyNodeStorage(snakemaketools.rules.NodeStorage):
             outputs.append(node)
         return tuple(outputs)
 
+    @db_session
     def get_parent_nodes(
         self,
         location: str,
@@ -178,7 +182,7 @@ class SimplePonyNodeStorage(snakemaketools.rules.NodeStorage):
         return DotDict(
             {
                 node_name: self.node_factory(**node_kwargs)
-                for node_name, node_kwargs in Node.GET(location=location)
+                for node_name, node_kwargs in Node[Node.GET(location=location)]
                 .get_parent_nodes()
                 .items()
             }
