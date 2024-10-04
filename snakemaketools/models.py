@@ -160,7 +160,8 @@ class SimplePonyNodeStorage(snakemaketools.rules.NodeStorage):
             db_node_id = Node.GETINSERT(
                 rule_id=rule_id,
                 config_id=config_id,
-                **dict(node),
+                location=node.location,
+                # **dict(node),
             )
             if self.debug:
                 node._debug["rule_id"] = rule_id
