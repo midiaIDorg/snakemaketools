@@ -152,11 +152,14 @@ class SimplePonyNodeStorage(snakemaketools.rules.NodeStorage):
         for expected_output in expected_outputs:
             node = expected_output.copy()
             node.location = node.location.format(id=storable_id)
-            Node.GETINSERT(
+            db_node_id = Node.GETINSERT(
                 rule_id=rule_id,
                 config_id=config_id,
                 **dict(node),
             )
+            node._debug["rule_id"] = rule_id
+            node._debug["config_id"] = config_id
+            node._debug["db_node"] = db_node_id
             outputs.append(node)
         return tuple(outputs)
 

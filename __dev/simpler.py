@@ -1,6 +1,9 @@
 # TODO: cool idea: make a script that checks for the all constrained occurences of an object in a database.
 # TODO: make a scipt that given a path, reports back all of the steps needed to make this. But for that: we will need the rules to actually save their names.
-
+#TODO: the test run can be simply executed first on the in-memory DB. only then in the perment one.
+# TODO: there shouuld be a default node location corresponding to the general rule.
+# TODO: there should be a mapping between name of script and its executable?
+# no, not necessary
 %load_ext autoreload
 %autoreload 2
 from __future__ import annotations
@@ -18,262 +21,74 @@ import toml
 from pony.orm import (Database, Optional, PrimaryKey, Required, Set, commit,
                       composite_index, db_session, set_sql_debug)
 
+import midia_pipe_hull.pipelines.base
 import snakemaketools.rules
 from snakemaketools.datastructures import DotDict
 from snakemaketools.encodings import partial_format
 from snakemaketools.models import *
 
 # set_sql_debug()
+
 db.bind(provider='sqlite', filename=':memory:', create_db=True)
+
 # db.bind(provider='sqlite', filename='/home/matteo/Projects/midia/pipelines/devel/midia_pipe/base.sqlite', create_db=True)
+
 db.generate_mapping(create_tables=True)
 
 
 
-dataset = "G8027"
-calibration = "G8045"
-fasta = "Human_2024_02_16_UniProt_Taxon9606_Reviewed_20434entries_contaminant_tenzer"
-config = "default"
-pipeline = "base"
 
+config = "default"
 with open(f"configs/consolidated/default.toml", "r") as f:
     consolidated_config = toml.load(f)
-subconfigs = copy.deepcopy(consolidated_config["subconfigs"])
+configs = DotDict(copy.deepcopy(consolidated_config["subconfigs"]))
 
-rule_config = dict(
-    insert_dataset = dict(
-        expected_inputs=dict(),
-        expected_outputs=[
-            dict(data_type="folder_d", location="spectra/{dataset}.d"),
-            dict(data_type="sqlite", location="spectra/{dataset}.d/analysis.tdf"),
-            dict(data_type="tdf_bin", location="spectra/{dataset}.d/analysis.tdf_bin"),
-        ],
-        expect_config_when_called=False,
-    ),
-    insert_calibration = dict(
-        expected_inputs=dict(),
-        expected_outputs=[
-            dict(data_type="folder_d", location="spectra/{dataset}.d"),
-            dict(data_type="sqlite", location="spectra/{dataset}.d/analysis.tdf"),
-            dict(data_type="tdf_bin", location="spectra/{dataset}.d/analysis.tdf_bin"),
-        ],
-        expect_config_when_called=False,
-    ),
-    insert_fasta = dict(
-        expected_inputs=dict(),
-        expected_outputs=[
-            dict(data_type="fasta", location="fastas/{fasta}.fasta"),
-        ],
-        expect_config_when_called=False,
-    ),
-    insert_tims_precursor_clustering_config=dict(
-        expected_inputs=dict(),
-        expected_outputs=[
-            dict(
-                data_type="tims_precursor_clustering_config",
-                location="tmp/configs/tims_precursor_clustering_config/{id}.config",
-            ),
-        ],
-        expect_config_when_called=True,
-    ),
-    insert_tims_fragment_clustering_config=dict(
-        expected_inputs=dict(),
-        expected_outputs=[
-            dict(
-                data_type="tims_fragment_clustering_config",
-                location="tmp/configs/tims_fragment_clustering_config/{id}.config",
-            ),
-        ],
-        expect_config_when_called=True,
-    ),
-    insert_precursor_cluster_stats_config=dict(
-        expected_inputs=dict(),
-        expected_outputs=[
-            dict(
-                data_type="precursor_cluster_stats_config",
-                location="tmp/configs/precursor_cluster_stats_config/{id}.toml",
-            ),
-        ],
-        expect_config_when_called=True,
-    ),
-    insert_fragment_cluster_stats_config=dict(
-        expected_inputs=dict(),
-        expected_outputs=[
-            dict(
-                data_type="fragment_cluster_stats_config",
-                location="tmp/configs/fragment_cluster_stats_config/{id}.toml",
-            ),
-        ],
-        expect_config_when_called=True,
-    ),
-    insert_matching_config=dict(
-        expected_inputs=dict(),
-        expected_outputs=[
-            dict(
-                data_type="matching_config",
-                location="tmp/configs/matching_config/{id}.toml",
-            )
-        ],
-        expect_config_when_called=True,
-    ),
-    insert_baseline_removal_config=dict(
-        expected_inputs=dict(),
-        expected_outputs=[
-            dict(
-                data_type="baseline_removal_config",
-                location="tmp/configs/baseline_removal_config/{id}.toml",
-            )
-        ],
-        expect_config_when_called=True,
-    ),
-    remove_raw_data_baseline = dict(
-        expected_inputs=dict(
-            raw_data="folder_d",
-            config="baseline_removal_config",
-        ),
-        expected_outputs=[
-            dict(
-                data_type = "folder_d",
-                location = "tmp/spectra/no_baseline/{id}.d",
-            ),
-            dict(
-                data_type = "sqlite",
-                location="tmp/spectra/no_baseline/{id}.d/analysis.tdf",
-            ),
-            dict(
-                data_type = "tdf_bin",
-                location = "tmp/spectra/no_baseline/{id}.d/analysis.tdf_bin",
-            ),
-        ],
-        expect_config_when_called=False,
-    ),
-    hash256 = dict(
-        expected_inputs=dict(path_template=None),
-        expected_outputs=[
-            dict(
-                data_type = "sha256",
-                location = "tmp/hashes/{id}.sha256",
-            ),
-        ],
-        expect_config_when_called=False,
-    ),
-    report_if_dataset_and_calibration_comply = dict(
-        expected_inputs = dict(
-            dataset = "folder_d",
-            calibration = "folder_d",
-        ),
-        expected_outputs = [
-            dict(
-                data_type = "dataset_matches_calibration_assertion",
-                location = "tmp/assertions/dataset_matches_calibration/{id}.d"
-            )
-        ],
-        expect_config_when_called=False,
-    ),
-    insert_tims_executable = dict(
-        expected_inputs = dict(),
-        expected_outputs = [
-            dict(
-                data_type="tims_executable",
-                location="tmp/executables/{id}",
-            )
-        ],
-        expect_config_when_called=False,
-    ),
-)
+dataset = "G8027"
+calibration = "G8045" # | = None
+fasta = "Human_2024_02_16_UniProt_Taxon9606_Reviewed_20434entries_contaminant_tenzer"
+
+with open(f"configs/rules.json", "r") as f:
+    rule_config = json.load(f)
 
 node_storage = SimplePonyNodeStorage()
-
 rules = DotDict()
 for rule_name, rule_subconfig in rule_config.items():
     rules[rule_name] = snakemaketools.rules.Rule(
         name=rule_name,
         node_storage=node_storage,
-        expected_inputs=DotDict(rule_subconfig["expected_inputs"]),
+        expected_inputs=rule_subconfig["expected_inputs"],
         expected_outputs=tuple(
             node_storage.node_factory(**expected_output)
             for expected_output in rule_subconfig["expected_outputs"]
         )
     )
 
-
-# will need to adjust some rules to deal with .toml only configs.
-c = rules.insert_tims_precursor_clustering_config(
-    subconfigs["tims_precursor_clustering_config"],
-)
-
-
-n = Node.GET(location=c.location)
-Node[n].rule_id
-Node[n].config_id
-
-
-Storable[1].get_content()
-Storable[2]
-
-Rule[1].get_content()
-# def get_pipeline_paths(
-#     subconfigs: dict,
-#     rules,
-#     fasta: str,
-#     # defaults
-#     calibration: str = "",  # "" == using Bruker windows
-# ) -> DotDict:
-
 root_wildcards = dict(
-    dataset = "G8027",
-    calibration = "G8045",
-    fasta = "Human_2024_02_16_UniProt_Taxon9606_Reviewed_20434entries_contaminant_tenzer",
+    dataset=dataset,
+    calibration=calibration,
+    fasta=fasta,
 )
-
-# fill with root_wildcards
 for rule in rules.values():
     for expected_output in rule.expected_outputs:
-        expected_output.location = partial_format(string=expected_output.location, **root_wildcards) 
+        expected_output.location = partial_format(
+            string=expected_output.location, **root_wildcards
+        )
 
-# pipeline
-paths = DotDict()
-
-paths.fasta = rules.insert_fasta()
-
-for 
-
-(
-    paths.dataset,
-    paths.dataset_analysis_tdf,
-    paths.dataset_analysis_tdf_bin,
-) = rules.insert_dataset()
-
-
-
-
-(
-    paths.calibration,
-    paths.calibration_analysis_tdf,
-    paths.calibration_analysis_tdf_bin,
-) = rules.insert_calibration()
-
-paths.dataset_analysis_tdf_hash = hash256(paths.dataset_analysis_tdf)
-paths.dataset_analysis_tdf_bin_hash = hash256(paths.dataset_analysis_tdf_bin)
-paths.dataset_marginals_plots = raw_data_marginals_plots_folder(paths.dataset)
-
-
-
-
-
-
-rules.remove_raw_data_baseline_parametrization
-rules.remove_raw_data_baseline_parametrization.type
-
-add_rule_and_paths_to_DB(
-    **config_kwargs    
+nodes = midia_pipe_hull.pipelines.base.get_nodes(
+    rules=rules,
+    configs=subconfigs,
+    **root_wildcards
 )
 
-subconfigs["precursor_clustering_config"]
 
 
 
-paths = fill_DB_with_paths(subconfigs=subconfigs, dataset=dataset, calibration=calibration, fasta=fasta,)
+
+
+
+nodes.additional_precursor_cluster_stats
+nodes.tims_fragment_clusterer_config
+subconfigs.tims_fragment_clusterer_config
 
 path_ids = {k: node.id for k, node in paths.items() if node != None}
 wishes = {wish: path_ids[wish] for wish in CONFIG["wishlist"]} 

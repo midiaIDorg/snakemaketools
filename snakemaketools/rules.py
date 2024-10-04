@@ -16,6 +16,7 @@ class Node:
 
     data_type: str | None  # None = no special data type # think of using typing system
     location: str
+    _debug: dict = dataclasses.field(default_factory=dict)
 
     def __iter__(self):
         yield "data_type", self.data_type
@@ -29,24 +30,20 @@ class Node:
 class Rule:
     name: str
     node_storage: NodeStorage
-    expected_inputs: DotDict[str, Node]
+    expected_inputs: dict[str, str]
     expected_outputs: tuple[Node, ...]
-    expect_config_when_called: bool = False
 
-    def __call__(
-        self, config: dict | None = None, **inputs: Node
+    def run(
+        self,
+        config: dict | None,
+        inputs: dict[str, Node],
     ) -> tuple[Node, ...] | Node:
-        assert not (
-            self.expect_config_when_called and config == None
-        ), f"Call of rule `{self.rule}` expects a config but you did not provide it, or provided None."
-
         for node_name, node in inputs.items():
             assert (
                 node_name in self.expected_inputs
             ), f"Node `{node_name}` not among expected inputs: `{self.expected_inputs}`."
 
-            expected_data_type = self.expected_inputs[node_name].data_type
-
+            expected_data_type = self.expected_inputs[node_name]
             if expected_data_type != None:
                 assert (
                     node.data_type == expected_data_type
@@ -58,13 +55,19 @@ class Rule:
         outputs = self.node_storage.get_outputs(
             inputs=inputs,
             expected_outputs=self.expected_outputs,
-            config=config,
+            config=None,
         )
 
         if len(outputs) == 1:
             return outputs[0]
 
         return outputs
+
+    def __call__(self, **inputs: Node) -> tuple[Node, ...] | Node:
+        return self.run(config=None, inputs=inputs)
+
+    def set(self, config: dict) -> tuple[Node, ...] | Node:
+        return self.run(config=config, inputs={})
 
 
 @dataclasses.dataclass
