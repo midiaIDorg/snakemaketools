@@ -3,7 +3,8 @@
 #TODO: the test run can be simply executed first on the in-memory DB. only then in the perment one.
 # TODO: there shouuld be a default node location corresponding to the general rule.
 # TODO: there should be a mapping between name of script and its executable?
-# no, not necessary
+# TODO; these functions should be simply declared somehow in scripts.
+# FOR NOW, assume that they are using named arguments.
 %load_ext autoreload
 %autoreload 2
 from __future__ import annotations
@@ -37,11 +38,12 @@ db.generate_mapping(create_tables=True)
 
 
 
-
 config = "default"
 with open(f"configs/consolidated/default.toml", "r") as f:
     consolidated_config = toml.load(f)
 configs = DotDict(copy.deepcopy(consolidated_config["subconfigs"]))
+
+configs.fragment_cluster_stats_config
 
 dataset = "G8027"
 calibration = "G8045" # | = None
@@ -50,7 +52,7 @@ fasta = "Human_2024_02_16_UniProt_Taxon9606_Reviewed_20434entries_contaminant_te
 with open(f"configs/rules.json", "r") as f:
     rule_config = json.load(f)
 
-node_storage = SimplePonyNodeStorage()
+node_storage = SimplePonyNodeStorage(debug=True)
 rules = DotDict()
 for rule_name, rule_subconfig in rule_config.items():
     rules[rule_name] = snakemaketools.rules.Rule(
@@ -76,10 +78,9 @@ for rule in rules.values():
 
 nodes = midia_pipe_hull.pipelines.base.get_nodes(
     rules=rules,
-    configs=subconfigs,
+    configs=configs,
     **root_wildcards
 )
-
 
 
 

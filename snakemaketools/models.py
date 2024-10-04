@@ -63,7 +63,7 @@ class Config(Storable):
 class Rule(Storable):
     def input_nodes(self) -> DotDict[str, dict]:  # order matters
         inputs: DotDict[str, dict] = DotDict()
-        for node_name, node_id in self.get_content.items():
+        for node_name, node_id in self.get_content().items():
             inputs[node_name] = Node[node_id].get_node_contents()
         return inputs
 
@@ -128,6 +128,8 @@ class Node(Storable):
 class SimplePonyNodeStorage(snakemaketools.rules.NodeStorage):
     """Implementation of a general NodeStorage Protocol using Pony ORM."""
 
+    debug: bool = False
+
     def get_outputs(
         self,
         inputs: dict[str, snakemaketools.rules.Node],
@@ -144,7 +146,10 @@ class SimplePonyNodeStorage(snakemaketools.rules.NodeStorage):
             rule_id = None
         else:
             storable_id = rule_id = Rule.GETINSERT(
-                **{name: node.location for name, node in inputs.items()}
+                **{
+                    name: Node.GET(location=node.location)
+                    for name, node in inputs.items()
+                }
             )
             config_id = None
 
@@ -157,9 +162,10 @@ class SimplePonyNodeStorage(snakemaketools.rules.NodeStorage):
                 config_id=config_id,
                 **dict(node),
             )
-            node._debug["rule_id"] = rule_id
-            node._debug["config_id"] = config_id
-            node._debug["db_node"] = db_node_id
+            if self.debug:
+                node._debug["rule_id"] = rule_id
+                node._debug["config_id"] = config_id
+                node._debug["db_node"] = db_node_id
             outputs.append(node)
         return tuple(outputs)
 

@@ -14,16 +14,21 @@ from snakemaketools.datastructures import DotDict
 class Node:
     """An object representing an entity used in the pipeline."""
 
-    data_type: str | None  # None = no special data type # think of using typing system
     location: str
+    data_type: str | None = (
+        None  # None = no special data type # think of using typing system
+    )
     _debug: dict = dataclasses.field(default_factory=dict)
 
     def __iter__(self):
-        yield "data_type", self.data_type
         yield "location", self.location
+        yield "data_type", self.data_type
 
     def copy(self) -> Node:
-        return copy.deepcopy(self)
+        return self.__class__(
+            location=self.location,
+            data_type=self.data_type,
+        )
 
 
 @dataclasses.dataclass
