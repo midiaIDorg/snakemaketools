@@ -89,8 +89,8 @@ class NodeStorage(abc.ABC):
         """Get output nodes"""
 
     @abc.abstractmethod
-    def get_parent_nodes(self, location: str) -> DotDict[str, Node]:
-        """Get nodes that lead to the creation of the current Node."""
+    def get_rule_input_paths(self, rule_id: int) -> dict[str, str]:
+        """Get names of input and their paths for a given rule_id."""
 
     @abc.abstractmethod
     def get_config(self, location: str) -> str:

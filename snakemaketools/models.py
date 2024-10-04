@@ -61,11 +61,12 @@ class Config(Storable):
 
 
 class Rule(Storable):
-    def input_nodes(self) -> DotDict[str, dict]:  # order matters
-        inputs: DotDict[str, dict] = DotDict()
-        for node_name, node_id in self.get_content().items():
-            inputs[node_name] = Node[node_id].get_node_contents()
-        return inputs
+    @db_session
+    def get_input_nodes(self) -> dict[str, str]:  # order matters
+        return {
+            node_name: Node[node_id].get_node_contents()["location"]
+            for node_name, node_id in self.get_content().items()
+        }
 
 
 class Node(Storable):
@@ -80,7 +81,7 @@ class Node(Storable):
     def get_parent_nodes(self) -> DotDict[str, dict]:
         if self.rule_id == None:
             return DotDict()
-        return Rule[self.rule_id].input_nodes()
+        return Rule[self.rule_id].get_input_nodes()
 
     @db_session
     def get_additional_content(self) -> dict:
@@ -175,19 +176,12 @@ class SimplePonyNodeStorage(snakemaketools.rules.NodeStorage):
         return tuple(outputs)
 
     @db_session
-    def get_parent_nodes(
+    def get_rule_input_paths(
         self,
-        location: str,
-    ) -> DotDict[str, snakemaketools.rules.Node]:
+        rule_id: int,
+    ) -> dict[str, str]:
         """Used in Snakemake DAG construction."""
-        return DotDict(
-            {
-                node_name: self.node_factory(**node_kwargs)
-                for node_name, node_kwargs in Node[Node.GET(location=location)]
-                .get_parent_nodes()
-                .items()
-            }
-        )
+        return Rule[rule_id].get_input_nodes()
 
     @db_session
     def get_config(self, location: str) -> str:
