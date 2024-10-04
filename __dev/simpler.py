@@ -85,12 +85,19 @@ nodes = midia_pipe_hull.pipelines.base.get_nodes(
 
 node_storage.get_parent_nodes(nodes.rough_matches.location)
 
+
 nodes.additional_precursor_cluster_stats
+
+
+node_storage.get_config(nodes.tims_fragment_clusterer_config.location)
+nodes.dataset_analysis_tdf_bin_hash
+nodes.tims_precursor_clusterer_config
 nodes.tims_fragment_clusterer_config
-subconfigs.tims_fragment_clusterer_config
 
 path_ids = {k: node.id for k, node in paths.items() if node != None}
 wishes = {wish: path_ids[wish] for wish in CONFIG["wishlist"]} 
+# TODO: figure out if it would be possible to directly use the new id of the given node.
+# should be possible: simply first instantiate the node and then give its id.
 
 
 
