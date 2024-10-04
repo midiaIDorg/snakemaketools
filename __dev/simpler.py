@@ -83,9 +83,7 @@ nodes = midia_pipe_hull.pipelines.base.get_nodes(
 )
 
 
-
-
-
+node_storage.get_parent_nodes(nodes.rough_matches.location)
 
 nodes.additional_precursor_cluster_stats
 nodes.tims_fragment_clusterer_config
@@ -96,7 +94,7 @@ wishes = {wish: path_ids[wish] for wish in CONFIG["wishlist"]}
 
 
 
-
+# co to jest get_config?
 
 
 

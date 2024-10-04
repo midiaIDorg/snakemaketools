@@ -57,7 +57,7 @@ class Storable(db.Entity):
 
 class Config(Storable):
     def get_config(self) -> dict:
-        return self.get_content()
+        return self.get_content()["config"]
 
 
 class Rule(Storable):
@@ -187,3 +187,10 @@ class SimplePonyNodeStorage(snakemaketools.rules.NodeStorage):
                 .items()
             }
         )
+
+    @db_session
+    def get_config(self, location: str) -> str:
+        node = Storable[Storable.GET(location=location)]
+        assert isinstance(node, Node), "Snakemake did not ask for a config."
+        assert node.config_id != None
+        return Config[node.config_id].get_config()

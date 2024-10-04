@@ -91,3 +91,7 @@ class NodeStorage(abc.ABC):
     @abc.abstractmethod
     def get_parent_nodes(self, location: str) -> DotDict[str, Node]:
         """Get nodes that lead to the creation of the current Node."""
+
+    @abc.abstractmethod
+    def get_config(self, location: str) -> str:
+        """Get a string with config that is supposed to be saved under the proded location."""
