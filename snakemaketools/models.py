@@ -151,6 +151,7 @@ class SimplePonyNodeStorage(snakemaketools.rules.NodeStorage):
             storable_id = rule_id = Rule.GETINSERT(
                 **{
                     name: Node.GET(location=node.location)
+                    # name: Node[node.id]
                     for name, node in inputs.items()
                 }
             )
