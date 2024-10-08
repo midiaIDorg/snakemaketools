@@ -18,33 +18,34 @@ from functools import partial
 from pprint import pprint
 from types import SimpleNamespace
 
+import midia_pipe_hull.pipelines.base
+import snakemaketools.rules
 import toml
 from pony.orm import (Database, Optional, PrimaryKey, Required, Set, commit,
                       composite_index, db_session, set_sql_debug)
-
-import midia_pipe_hull.pipelines.base
-import snakemaketools.rules
 from snakemaketools.datastructures import DotDict
 from snakemaketools.encodings import partial_format
 from snakemaketools.models import *
 
-# set_sql_debug()
+# how should one parse in resources?
+# simply in the wildcards would be OK
+# but those will need to be then somehow stored in a some place.
+# the general paths could simply store them.
 
+
+# set_sql_debug()
 # db.bind(provider='sqlite', filename=':memory:', create_db=True)
 
 db.bind(provider='sqlite', filename='/home/matteo/Projects/midia/pipelines/devel/midia_pipe/base.sqlite', create_db=True)
-
 db.generate_mapping(create_tables=True)
-
 
 
 config = "default"
 with open(f"configs/consolidated/default.toml", "r") as f:
     consolidated_config = toml.load(f)
-configs = DotDict(copy.deepcopy(consolidated_config["subconfigs"]))
+configs = DotDict(copy.deepcopy(consolidated_config["configs"]))
 
-configs.fragment_cluster_stats_config
-
+# general wildcards
 dataset = "G8027"
 calibration = "G8045" # | = None
 fasta = "Human_2024_02_16_UniProt_Taxon9606_Reviewed_20434entries_contaminant_tenzer"
@@ -65,28 +66,49 @@ for rule_name, rule_subconfig in rule_config.items():
         )
     )
 
-root_wildcards = dict(
+wildcards = DotDict(
     dataset=dataset,
     calibration=calibration,
     fasta=fasta,
+    **consolidated_config["wildcards"]
 )
 for rule in rules.values():
     for expected_output in rule.expected_outputs:
         expected_output.location = partial_format(
-            string=expected_output.location, **root_wildcards
+            string=expected_output.location, **wildcards
         )
 
 nodes = midia_pipe_hull.pipelines.base.get_nodes(
     rules=rules,
     configs=configs,
-    **root_wildcards
+    wildcards=wildcards
 )
 
+# def install_tims(version):
+#     # should this be executable or not?
+#     # or should it be only represented.
+# wait ,independent of that, simple snakemake rules should be first world citizens.
 
-node_storage.get_parent_nodes(nodes.rough_matches.location)
+# so how to represent a general rule?
 
 
-nodes.additional_precursor_cluster_stats
+json.loads(json.dumps(configs.precursor_clusterer_config))
+
+
+nodes.fragment_cluster_stats_config.location
+configs.tims_precursor_clusterer
+configs.tims_precursor_clusterer_config
+
+nodes.dataset_matches_calibration_assertion
+
+nodes.tims_precursor_clusterer
+Config[Storable[nodes.tims_precursor_clusterer._debug["db_node"]].config_id].get_config()
+
+Node.GET(location=nodes.tims_precursor_clusterer.location)
+
+C = node_storage.get_config(nodes.tims_precursor_clusterer.location)
+
+toml.loads(C)
 
 
 node_storage.get_config(nodes.tims_fragment_clusterer_config.location)
@@ -98,6 +120,7 @@ path_ids = {k: node.id for k, node in paths.items() if node != None}
 wishes = {wish: path_ids[wish] for wish in CONFIG["wishlist"]} 
 # TODO: figure out if it would be possible to directly use the new id of the given node.
 # should be possible: simply first instantiate the node and then give its id.
+
 
 
 

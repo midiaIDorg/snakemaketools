@@ -8,9 +8,8 @@ from __future__ import annotations
 import dataclasses
 import json
 
-from pony.orm import Optional, PrimaryKey, Required, commit, db_session
-
 import snakemaketools.rules
+from pony.orm import Optional, PrimaryKey, Required, commit, db_session
 from snakemaketools.datastructures import DotDict
 from snakemaketools.db_config import db
 
@@ -57,7 +56,7 @@ class Storable(db.Entity):
 
 class Config(Storable):
     def get_config(self) -> dict:
-        return self.get_content()["config"]
+        return self.get_content()
 
 
 class Rule(Storable):
@@ -138,7 +137,7 @@ class SimplePonyNodeStorage(snakemaketools.rules.NodeStorage):
         self,
         inputs: dict[str, snakemaketools.rules.Node],
         expected_outputs: tuple[snakemaketools.rules.Node, ...],
-        config: dict | None = None,
+        config: dict | str | None = None,
     ) -> tuple[snakemaketools.rules.Node, ...]:
         """Create output nodes for a given rule."""
 
@@ -146,6 +145,10 @@ class SimplePonyNodeStorage(snakemaketools.rules.NodeStorage):
         # coincide, that would not result in an error while calling GET of either
         # Confir nor Rule. But would for Storable.
         if config != None:
+            if isinstance(config, str):
+                config = {"config": config}
+            assert "config_id" not in config, "Do not put `config_id` key into config."
+            assert "rule_id" not in config, "Do not put `rule_id` key into config."
             storable_id = config_id = Config.GETINSERT(**config)
             rule_id = None
         else:
