@@ -24,21 +24,18 @@ import toml
 from pony.orm import (Database, Optional, PrimaryKey, Required, Set, commit,
                       composite_index, db_session, set_sql_debug)
 from snakemaketools.datastructures import DotDict
-from snakemaketools.encodings import partial_format
-from snakemaketools.models import *
-
 # how should one parse in resources?
 # simply in the wildcards would be OK
 # but those will need to be then somehow stored in a some place.
 # the general paths could simply store them.
-
+from snakemaketools.encodings import partial_format
+from snakemaketools.models import *
 
 # set_sql_debug()
 # db.bind(provider='sqlite', filename=':memory:', create_db=True)
 
 db.bind(provider='sqlite', filename='/home/matteo/Projects/midia/pipelines/devel/midia_pipe/base.sqlite', create_db=True)
 db.generate_mapping(create_tables=True)
-
 
 config = "default"
 with open(f"configs/consolidated/default.toml", "r") as f:
@@ -66,12 +63,15 @@ for rule_name, rule_subconfig in rule_config.items():
         )
     )
 
+
 wildcards = DotDict(
     dataset=dataset,
     calibration=calibration,
     fasta=fasta,
     **consolidated_config["wildcards"]
 )
+assert "id" not in wildcards
+
 for rule in rules.values():
     for expected_output in rule.expected_outputs:
         expected_output.location = partial_format(
@@ -83,6 +83,10 @@ nodes = midia_pipe_hull.pipelines.base.get_nodes(
     configs=configs,
     wildcards=wildcards
 )
+
+
+
+configs.precursor_tims_installation_config
 
 # def install_tims(version):
 #     # should this be executable or not?

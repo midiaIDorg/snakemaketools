@@ -41,9 +41,10 @@ class Rule:
     def run(
         self,
         config: dict | None,
-        inputs: dict[str, Node],
+        input_nodes: dict[str, Node],
+        wildcards: dict[str, str],
     ) -> tuple[Node, ...] | Node:
-        for node_name, node in inputs.items():
+        for node_name, node in input_nodes.items():
             assert (
                 node_name in self.expected_inputs
             ), f"Node `{node_name}` not among expected inputs: `{self.expected_inputs}`."
@@ -55,12 +56,13 @@ class Rule:
                 ), f"Types mismatch: `{node_name}` is of type `{node.data_type}`. Its expected type is `{expected_data_type}`."
 
         for expected_input in self.expected_inputs:
-            assert expected_input in inputs, f"Missing input `{expected_input}`."
+            assert expected_input in input_nodes, f"Missing input `{expected_input}`."
 
         outputs = self.node_storage.get_outputs(
-            inputs=inputs,
+            inputs=input_nodes,
             expected_outputs=self.expected_outputs,
             config=config,
+            wildcards=wildcards,
         )
 
         if len(outputs) == 1:
@@ -69,10 +71,21 @@ class Rule:
         return outputs
 
     def __call__(self, **inputs: Node) -> tuple[Node, ...] | Node:
-        return self.run(config=None, inputs=inputs)
+        nodes = {}
+        wildcards = {}
+        for key, value in inputs.items():
+            if isinstance(value, Node):
+                nodes[key] = value
+            elif isinstance(value, str):
+                wildcards[key] = value
+            else:
+                raise ValueError(
+                    f"Passed in a value that is not a string nor a Node (or inheriting therefrom)."
+                )
+        return self.run(config=None, input_nodes=nodes, wildcards=wildcards)
 
     def set(self, config: dict) -> tuple[Node, ...] | Node:
-        return self.run(config=config, inputs={})
+        return self.run(config=config, input_nodes={}, wildcards={})
 
 
 @dataclasses.dataclass
@@ -85,6 +98,7 @@ class NodeStorage(abc.ABC):
         inputs: dict[str, Node],
         expected_outputs: tuple[Node, ...],
         config: dict | None = None,
+        wildcards: dict | None = None,
     ) -> tuple[Node, ...]:
         """Get output nodes"""
 

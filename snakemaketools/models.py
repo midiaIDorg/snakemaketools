@@ -138,6 +138,7 @@ class SimplePonyNodeStorage(snakemaketools.rules.NodeStorage):
         inputs: dict[str, snakemaketools.rules.Node],
         expected_outputs: tuple[snakemaketools.rules.Node, ...],
         config: dict | str | None = None,
+        wildcards: dict | None = None,
     ) -> tuple[snakemaketools.rules.Node, ...]:
         """Create output nodes for a given rule."""
 
@@ -155,16 +156,16 @@ class SimplePonyNodeStorage(snakemaketools.rules.NodeStorage):
             storable_id = rule_id = Rule.GETINSERT(
                 **{
                     name: Node.GET(location=node.location)
-                    # name: Node[node.id]
                     for name, node in inputs.items()
                 }
             )
             config_id = None
 
         outputs = []
+        assert "id" not in wildcards
         for expected_output in expected_outputs:
             node = expected_output.copy()
-            node.location = node.location.format(id=storable_id)
+            node.location = node.location.format(id=storable_id, **wildcards)
             db_node_id = Node.GETINSERT(
                 rule_id=rule_id,
                 config_id=config_id,
