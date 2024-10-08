@@ -83,8 +83,8 @@ nodes = midia_pipe_hull.pipelines.base.get_nodes(
     configs=configs,
     wildcards=wildcards
 )
-
-
+list(nodes)
+nodes.precursor_clusters_hdf.location
 
 configs.precursor_tims_installation_config
 
