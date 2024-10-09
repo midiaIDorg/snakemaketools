@@ -14,7 +14,11 @@ authors=[
 dependencies = [
     "snakemake",
     "pony",
+    "click",
 ]
+
+[project.scripts]
+greet = "snakemaketools.cli:greet"
 
 [project.urls]
 homepage="https://github.com/midiaIDorg/snakemaketools.git"

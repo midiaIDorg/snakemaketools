@@ -42,7 +42,7 @@ with open(f"configs/consolidated/default.toml", "r") as f:
     consolidated_config = toml.load(f)
 configs = DotDict(copy.deepcopy(consolidated_config["configs"]))
 
-# general wildcards
+# general wildcards: it should be possible to either provide those directly or in the config.
 dataset = "G8027"
 calibration = "G8045" # | = None
 fasta = "Human_2024_02_16_UniProt_Taxon9606_Reviewed_20434entries_contaminant_tenzer"
@@ -56,7 +56,10 @@ for rule_name, rule_subconfig in rule_config.items():
     rules[rule_name] = snakemaketools.rules.Rule(
         name=rule_name,
         node_storage=node_storage,
-        expected_inputs=rule_subconfig["expected_inputs"],
+        expected_inputs={
+            node_name: node_storage.node_factory(**node_info)
+            for node_name, node_info in rule_subconfig["expected_inputs"].items()
+        },
         expected_outputs=tuple(
             node_storage.node_factory(**expected_output)
             for expected_output in rule_subconfig["expected_outputs"]
@@ -85,6 +88,7 @@ nodes = midia_pipe_hull.pipelines.base.get_nodes(
 )
 list(nodes)
 nodes.precursor_clusters_hdf.location
+nodes.
 
 configs.precursor_tims_installation_config
 

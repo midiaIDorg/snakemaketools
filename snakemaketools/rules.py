@@ -1,3 +1,7 @@
+"""
+TODO: 
+would be nicer to add some level of abstraction so that Rule is an interface with specific implementations.
+"""
 from __future__ import annotations
 
 import abc
@@ -14,10 +18,8 @@ from snakemaketools.datastructures import DotDict
 class Node:
     """An object representing an entity used in the pipeline."""
 
-    location: str
-    data_type: str | None = (
-        None  # None = no special data type # think of using typing system
-    )
+    location: str | None = None
+    data_type: str | None = None
     _debug: dict = dataclasses.field(default_factory=dict)
 
     def __iter__(self):
@@ -31,11 +33,12 @@ class Node:
         )
 
 
+# TODO: missing wildcards.
 @dataclasses.dataclass
 class Rule:
     name: str
     node_storage: NodeStorage
-    expected_inputs: dict[str, str]
+    expected_inputs: dict[str, Node]
     expected_outputs: tuple[Node, ...]
 
     def run(
@@ -49,7 +52,7 @@ class Rule:
                 node_name in self.expected_inputs
             ), f"Node `{node_name}` not among expected inputs: `{self.expected_inputs}`."
 
-            expected_data_type = self.expected_inputs[node_name]
+            expected_data_type = self.expected_inputs[node_name].data_type
             if expected_data_type != None:
                 assert (
                     node.data_type == expected_data_type
@@ -70,6 +73,7 @@ class Rule:
 
         return outputs
 
+    # TODO: should allow for *args inputs, not only **nargs. Like any function.
     def __call__(self, **inputs: Node) -> tuple[Node, ...] | Node:
         nodes = {}
         wildcards = {}
