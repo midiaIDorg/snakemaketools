@@ -48,38 +48,35 @@ calibration = "G8045" # | = None
 fasta = "Human_2024_02_16_UniProt_Taxon9606_Reviewed_20434entries_contaminant_tenzer"
 
 with open(f"configs/rules.json", "r") as f:
-    rule_config = json.load(f)
+    rule_configs = json.load(f)
 
 node_storage = SimplePonyNodeStorage(debug=True)
 rules = DotDict()
-for rule_name, rule_subconfig in rule_config.items():
-    rules[rule_name] = snakemaketools.rules.Rule(
-        name=rule_name,
+for rule_name, rule_config in rule_configs.items():
+    rules[rule_name] = snakemaketools.rules.Rule.from_config(
+        rule_name=rule_name,
         node_storage=node_storage,
-        expected_inputs={
-            node_name: node_storage.node_factory(**node_info)
-            for node_name, node_info in rule_subconfig["expected_inputs"].items()
-        },
-        expected_outputs=tuple(
-            node_storage.node_factory(**expected_output)
-            for expected_output in rule_subconfig["expected_outputs"]
-        )
+        **rule_config
     )
 
 
-wildcards = DotDict(
+
+str_wildcards = DotDict(
     dataset=dataset,
     calibration=calibration,
     fasta=fasta,
     **consolidated_config["wildcards"]
 )
+wildcards = DotDict()
+for wildcard_name, wildcard_value in str_wildcards.items():
+    wildcards[wildcard_name] = snakemaketools.rules.Wildcard(wildcard_value)
 assert "id" not in wildcards
 
-for rule in rules.values():
-    for expected_output in rule.expected_outputs:
-        expected_output.location = partial_format(
-            string=expected_output.location, **wildcards
-        )
+# for rule in rules.values():
+#     for expected_output in rule.expected_outputs:
+#         expected_output.location = partial_format(
+#             string=expected_output.location, **wildcards
+#         )
 
 nodes = midia_pipe_hull.pipelines.base.get_nodes(
     rules=rules,
