@@ -18,11 +18,12 @@ from functools import partial
 from pprint import pprint
 from types import SimpleNamespace
 
-import midia_pipe_hull.pipelines.base
-import snakemaketools.rules
 import toml
 from pony.orm import (Database, Optional, PrimaryKey, Required, Set, commit,
                       composite_index, db_session, set_sql_debug)
+
+import midia_pipe_hull.pipelines.base
+import snakemaketools.rules
 from snakemaketools.datastructures import DotDict
 # how should one parse in resources?
 # simply in the wildcards would be OK
@@ -30,6 +31,8 @@ from snakemaketools.datastructures import DotDict
 # the general paths could simply store them.
 from snakemaketools.encodings import partial_format
 from snakemaketools.models import *
+from snakemaketools.parsers import (comment_based_toml_extractor,
+                                    iter_lines_recursively)
 
 # set_sql_debug()
 # db.bind(provider='sqlite', filename=':memory:', create_db=True)
@@ -46,6 +49,10 @@ configs = DotDict(copy.deepcopy(consolidated_config["configs"]))
 dataset = "G8027"
 calibration = "G8045" # | = None
 fasta = "Human_2024_02_16_UniProt_Taxon9606_Reviewed_20434entries_contaminant_tenzer"
+
+tomls = comment_based_toml_extractor(iter_lines_recursively(root="workflow"))
+
+
 
 with open(f"configs/rules.json", "r") as f:
     rule_configs = json.load(f)
@@ -84,8 +91,11 @@ nodes = midia_pipe_hull.pipelines.base.get_nodes(
     wildcards=wildcards
 )
 list(nodes)
+
 nodes.precursor_clusters_hdf.location
-nodes.
+nodes.precursor_clustering_qc.location
+nodes.fragment_clusters_hdf.location
+nodes.fragment_clusters.location
 
 configs.precursor_tims_installation_config
 
@@ -95,9 +105,6 @@ configs.precursor_tims_installation_config
 # wait ,independent of that, simple snakemake rules should be first world citizens.
 
 # so how to represent a general rule?
-
-
-json.loads(json.dumps(configs.precursor_clusterer_config))
 
 
 nodes.fragment_cluster_stats_config.location

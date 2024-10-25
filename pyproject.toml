@@ -15,10 +15,11 @@ dependencies = [
     "snakemake",
     "pony",
     "click",
+    "toml",
 ]
 
 [project.scripts]
-greet = "snakemaketools.cli:greet"
+greet = "snakemaketools.cli:greet_cmd"
 
 [project.urls]
 homepage="https://github.com/midiaIDorg/snakemaketools.git"

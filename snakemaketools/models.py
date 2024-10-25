@@ -8,8 +8,9 @@ from __future__ import annotations
 import dataclasses
 import json
 
-import snakemaketools.rules
 from pony.orm import Optional, PrimaryKey, Required, commit, db_session
+
+import snakemaketools.rules
 from snakemaketools.datastructures import DotDict
 from snakemaketools.db_config import db
 
@@ -144,7 +145,7 @@ class SimplePonyNodeStorage(snakemaketools.rules.NodeStorage):
 
         # NOTE: even if ever inputs for Config.GETINSERT and Rule.GETINSERT would
         # coincide, that would not result in an error while calling GET of either
-        # Confir nor Rule. But would for Storable.
+        # Config nor Rule. But would for Storable.
         if config != None:
             if isinstance(config, str):
                 config = {"config": config}
