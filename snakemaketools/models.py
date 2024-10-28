@@ -8,9 +8,8 @@ from __future__ import annotations
 import dataclasses
 import json
 
-from pony.orm import Optional, PrimaryKey, Required, commit, db_session
-
 import snakemaketools.rules
+from pony.orm import Optional, PrimaryKey, Required, commit, db_session
 from snakemaketools.datastructures import DotDict
 from snakemaketools.db_config import db
 
@@ -136,10 +135,11 @@ class SimplePonyNodeStorage(snakemaketools.rules.NodeStorage):
 
     def get_outputs(
         self,
-        inputs: dict[str, snakemaketools.rules.Node],
+        expected_inputs: dict[str, snakemaketools.rules.Node],
         expected_outputs: tuple[snakemaketools.rules.Node, ...],
         wildcards: dict[str, snakemaketools.rules.Wildcard],
-        config: dict | str | None = None,
+        # config: snakemaketools.rules.Config | str | None = None,
+        config: snakemaketools.rules.Config | None = None,
     ) -> tuple[snakemaketools.rules.Node, ...]:
         """Create output nodes for a given rule."""
 
@@ -147,17 +147,17 @@ class SimplePonyNodeStorage(snakemaketools.rules.NodeStorage):
         # coincide, that would not result in an error while calling GET of either
         # Config nor Rule. But would for Storable.
         if config != None:
-            if isinstance(config, str):
-                config = {"config": config}
-            assert "config_id" not in config, "Do not put `config_id` key into config."
-            assert "rule_id" not in config, "Do not put `rule_id` key into config."
-            storable_id = config_id = Config.GETINSERT(**config)
+            # if isinstance(config, str):
+            #     config = {"config": config}
+            # assert "config_id" not in config, "Do not put `config_id` key into config."
+            # assert "rule_id" not in config, "Do not put `rule_id` key into config."
+            storable_id = config_id = Config.GETINSERT(**config.config)
             rule_id = None
         else:
             storable_id = rule_id = Rule.GETINSERT(
                 **{
                     name: Node.GET(location=node.location)
-                    for name, node in inputs.items()
+                    for name, node in expected_inputs.items()
                 }
             )
             config_id = None

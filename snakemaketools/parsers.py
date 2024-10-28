@@ -1,4 +1,7 @@
+import dataclasses
+import json
 import pathlib
+import typing
 from collections import defaultdict
 from typing import Iterable
 
@@ -36,7 +39,7 @@ def comment_based_toml_extractor(
             conf = "\n".join(buffer)
             tomls.append(toml.loads(conf))
         elif recording:
-            assert line.startswith(_comment_tag)
+            assert line.startswith(_comment_tag), line
             line = line[len(_comment_tag) :]
             buffer.append(line)
         else:
@@ -52,3 +55,34 @@ def iter_lines_recursively(root: pathlib.Path | str, pattern: str = "**/*.smk"):
         with open(path, "r") as f:
             for line in f:
                 yield line
+
+
+def dotConfig_loads(text: str) -> dict:
+    """Read .config files for 4DFF and 5DFF."""
+    res = {}
+    for l in text.split("\n"):
+        l = l.strip()
+        if "=" in l:
+            LHS, RHS = l.split("=")
+            LHS = LHS.strip()
+            RHS = RHS.strip()
+            assert LHS not in res, f"Key `{LHS}` appears more than once."
+            try:
+                RHS = float(RHS)
+            except ValueError:
+                pass
+            res[LHS] = RHS
+    return res
+
+
+@dataclasses.dataclass
+class DictSerializer:
+    loads: typing.Callable[[str], dict]
+    dumps: typing.Callable[[dict], str]
+
+
+serializers = {
+    ".toml": DictSerializer(toml.loads, toml.dumps),
+    ".json": DictSerializer(json.loads, json.dumps),
+    ".config": DictSerializer(dotConfig_loads, toml.dumps),
+}

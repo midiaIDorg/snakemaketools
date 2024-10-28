@@ -18,12 +18,11 @@ from functools import partial
 from pprint import pprint
 from types import SimpleNamespace
 
+import midia_pipe_hull.pipelines.base
+import snakemaketools.rules
 import toml
 from pony.orm import (Database, Optional, PrimaryKey, Required, Set, commit,
                       composite_index, db_session, set_sql_debug)
-
-import midia_pipe_hull.pipelines.base
-import snakemaketools.rules
 from snakemaketools.datastructures import DotDict
 # how should one parse in resources?
 # simply in the wildcards would be OK
@@ -43,30 +42,50 @@ db.generate_mapping(create_tables=True)
 config = "default"
 with open(f"configs/consolidated/default.toml", "r") as f:
     consolidated_config = toml.load(f)
-configs = DotDict(copy.deepcopy(consolidated_config["configs"]))
+
+configs = DotDict()
+for name, config in consolidated_config.items():
+    if "config" in config:
+        configs[name] = snakemaketools.rules.Config.from_config(**config)
+
+
+configs.matching.serialized
+configs.matching.parsed
+configs.precursor_clusterer.parsed
+
+# OK, so now the configs have a specific field that can be used to store things.
+# the concept of a config is crucial for hte pipeline to work, as they control the bloody shitty shits.
+
+# TODO: add configs properly into the pipeline and make it simple to call them and get unique address.
+
 
 # general wildcards: it should be possible to either provide those directly or in the config.
 dataset = "G8027"
 calibration = "G8045" # | = None
 fasta = "Human_2024_02_16_UniProt_Taxon9606_Reviewed_20434entries_contaminant_tenzer"
 
-tomls = comment_based_toml_extractor(iter_lines_recursively(root="workflow"))
-
-
-
-with open(f"configs/rules.json", "r") as f:
-    rule_configs = json.load(f)
-
 node_storage = SimplePonyNodeStorage(debug=True)
+rule_configs = comment_based_toml_extractor(iter_lines_recursively(root="workflow"))
 rules = DotDict()
-for rule_name, rule_config in rule_configs.items():
+for rule_config in rule_configs:
+    rule_name = rule_config.pop("rule_name")
     rules[rule_name] = snakemaketools.rules.Rule.from_config(
         rule_name=rule_name,
         node_storage=node_storage,
         **rule_config
     )
 
+# with open(f"configs/rules.json", "r") as f:
+#     rule_configs2 = json.load(f)
 
+# node_storage = SimplePonyNodeStorage(debug=True)
+# rules = DotDict()
+# for rule_name, rule_config in rule_configs.items():
+#     rules[rule_name] = snakemaketools.rules.Rule.from_config(
+#         rule_name=rule_name,
+#         node_storage=node_storage,
+#         **rule_config
+#     )
 
 str_wildcards = DotDict(
     dataset=dataset,

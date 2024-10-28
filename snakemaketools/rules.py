@@ -9,8 +9,12 @@ import collections.abc
 import copy
 import dataclasses
 import functools
+import json
 import typing
+from typing import Protocol
 
+import snakemaketools.parsers
+import toml
 from snakemaketools.datastructures import DotDict
 
 
@@ -42,6 +46,35 @@ class Wildcard:
 
 
 @dataclasses.dataclass
+class Config:
+    """An object representing a config and its meta information."""
+
+    serialized: str
+    parsed: dict
+    meta: dict
+
+    @classmethod
+    def from_config(
+        cls,
+        config,
+        format: str,
+        _converters: dict[
+            str, snakemaketools.parsers.DictSerializer
+        ] = snakemaketools.parsers.serializers,
+        **meta,
+    ):
+        if isinstance(config, str):
+            serialized = config
+            parsed = _converters[format].loads(config)
+        elif isinstance(config, dict):
+            serialized = _converters[format].dumps(config)
+            parsed = config
+        else:
+            raise ValueError
+        return cls(serialized=serialized, parsed=parsed, meta=meta)
+
+
+@dataclasses.dataclass
 class Rule:
     name: str
     node_storage: NodeStorage
@@ -49,6 +82,7 @@ class Rule:
     expected_outputs: tuple[Node, ...]
     expected_wildcards: dict[str, Wildcard]
 
+    # TODO: make obsolete
     @classmethod
     def from_config(
         cls,
@@ -60,6 +94,35 @@ class Rule:
     ):
         assert (
             len(expected_outputs) > 0
+        ), "A rule without expected outputs does not find place in Snakemake."
+        return cls(
+            name=rule_name,
+            node_storage=node_storage,
+            expected_inputs={
+                node_name: node_storage.node_factory(**node_info)
+                for node_name, node_info in expected_inputs.items()
+            },
+            expected_outputs=tuple(
+                node_storage.node_factory(**expected_output)
+                for expected_output in expected_outputs
+            ),
+            expected_wildcards={
+                wildcard_name: node_storage.wildcard_factory(**wildcard_info)
+                for wildcard_name, wildcard_info in expected_wildcards.items()
+            },
+        )
+
+    @classmethod
+    def from_toml(
+        cls,
+        node_storage: NodeStorage,
+        rule_name: str,
+        outputs: list[str],
+        inputs: list[str] = [],
+        wildcards: list[str] = [],
+    ):
+        assert (
+            len(outputs) > 0
         ), "A rule without expected outputs does not find place in Snakemake."
         return cls(
             name=rule_name,
@@ -120,19 +183,25 @@ class Rule:
     def __call__(self, **inputs: Node) -> tuple[Node, ...] | Node:
         nodes: dict[str, Node] = {}
         wildcards: dict[str, Wildcard] = {}
+        config = None
         for key, value in inputs.items():
             if isinstance(value, Node):
                 nodes[key] = value
             elif isinstance(value, Wildcard):
                 wildcards[key] = value
+            elif isinstance(value, Config):
+                assert (
+                    config == None
+                ), "You passed in two configs whereas at most one is accepted."
+                config = value
             else:
                 raise ValueError(
                     f"Passed in a value that is not a string nor a Node (or inheriting therefrom)."
                 )
-        return self.run(config=None, input_nodes=nodes, wildcards=wildcards)
+        return self.run(config=config, input_nodes=nodes, wildcards=wildcards)
 
-    def set(self, config: dict) -> tuple[Node, ...] | Node:
-        return self.run(config=config, input_nodes={}, wildcards={})
+    # def set(self, config: dict) -> tuple[Node, ...] | Node:
+    #     return self.run(config=config, input_nodes={}, wildcards={})
 
 
 @dataclasses.dataclass
@@ -146,7 +215,7 @@ class NodeStorage(abc.ABC):
         inputs: dict[str, Node],
         expected_outputs: tuple[Node, ...],
         wildcards: dict[str, Wildcard],
-        config: dict | None = None,
+        config: Config | None = None,
     ) -> tuple[Node, ...]:
         """Get output nodes"""
 
