@@ -138,8 +138,8 @@ class SimplePonyNodeStorage(snakemaketools.rules.NodeStorage):
         expected_inputs: dict[str, snakemaketools.rules.Node],
         expected_outputs: tuple[snakemaketools.rules.Node, ...],
         wildcards: dict[str, snakemaketools.rules.Wildcard],
-        # config: snakemaketools.rules.Config | str | None = None,
         config: snakemaketools.rules.Config | None = None,
+        # config: snakemaketools.rules.Config | str | None = None,
     ) -> tuple[snakemaketools.rules.Node, ...]:
         """Create output nodes for a given rule."""
 
@@ -151,7 +151,7 @@ class SimplePonyNodeStorage(snakemaketools.rules.NodeStorage):
             #     config = {"config": config}
             # assert "config_id" not in config, "Do not put `config_id` key into config."
             # assert "rule_id" not in config, "Do not put `rule_id` key into config."
-            storable_id = config_id = Config.GETINSERT(**config.config)
+            storable_id = config_id = Config.GETINSERT(**config.parsed)
             rule_id = None
         else:
             storable_id = rule_id = Rule.GETINSERT(
@@ -164,16 +164,23 @@ class SimplePonyNodeStorage(snakemaketools.rules.NodeStorage):
 
         outputs = []
         assert "id" not in wildcards
-        wildcard_name_to_value = {
+
+        path_wildcards = {
             wildcard_name: wildcard.value
             for wildcard_name, wildcard in wildcards.items()
         }
+        if config != None:
+            for name, value in config.meta.items():
+                assert (
+                    name not in path_wildcards
+                ), f"Wildcard `{name}` found both among Wildcards and Config.meta."
+                path_wildcards[name] = value
 
         for expected_output in expected_outputs:
             node = expected_output.copy()
             node.location = node.location.format(
                 id=storable_id,
-                **wildcard_name_to_value,
+                **path_wildcards,
             )
             db_node_id = Node.GETINSERT(
                 rule_id=rule_id,

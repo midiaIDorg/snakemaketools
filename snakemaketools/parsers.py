@@ -57,6 +57,12 @@ def iter_lines_recursively(root: pathlib.Path | str, pattern: str = "**/*.smk"):
                 yield line
 
 
+def cast_to_int_or_float(x):
+    if "." in x:
+        return float(x)
+    return int(x)
+
+
 def dotConfig_loads(text: str) -> dict:
     """Read .config files for 4DFF and 5DFF."""
     res = {}
@@ -68,7 +74,7 @@ def dotConfig_loads(text: str) -> dict:
             RHS = RHS.strip()
             assert LHS not in res, f"Key `{LHS}` appears more than once."
             try:
-                RHS = float(RHS)
+                RHS = cast_to_int_or_float(RHS)
             except ValueError:
                 pass
             res[LHS] = RHS

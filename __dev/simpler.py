@@ -48,10 +48,11 @@ for name, config in consolidated_config.items():
     if "config" in config:
         configs[name] = snakemaketools.rules.Config.from_config(**config)
 
+configs.precursor_clusterer.parsed
 
 configs.matching.serialized
 configs.matching.parsed
-configs.precursor_clusterer.parsed
+configs.precursor_clusterer.serialized
 
 # OK, so now the configs have a specific field that can be used to store things.
 # the concept of a config is crucial for hte pipeline to work, as they control the bloody shitty shits.

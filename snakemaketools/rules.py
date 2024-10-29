@@ -143,7 +143,7 @@ class Rule:
 
     def run(
         self,
-        config: dict | None,
+        config: Config | None,
         input_nodes: dict[str, Node],
         wildcards: dict[str, Wildcard],
     ) -> tuple[Node, ...] | Node:
@@ -179,7 +179,7 @@ class Rule:
 
         return outputs
 
-    # TODO: should allow for *args inputs, not only **nargs. Like any function.
+    # TODO: should allow for *args inputs, not only **nargs. Like any function???
     def __call__(self, **inputs: Node) -> tuple[Node, ...] | Node:
         nodes: dict[str, Node] = {}
         wildcards: dict[str, Wildcard] = {}
@@ -199,9 +199,6 @@ class Rule:
                     f"Passed in a value that is not a string nor a Node (or inheriting therefrom)."
                 )
         return self.run(config=config, input_nodes=nodes, wildcards=wildcards)
-
-    # def set(self, config: dict) -> tuple[Node, ...] | Node:
-    #     return self.run(config=config, input_nodes={}, wildcards={})
 
 
 @dataclasses.dataclass
