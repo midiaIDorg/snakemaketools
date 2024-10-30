@@ -54,8 +54,8 @@ class Storable(snakemaketools.db_config.db.Entity):
 
 
 class Config(Storable):
-    def get_config(self) -> dict:
-        return self.get_content()
+    def get_config(self) -> DotDict:
+        return DotDict(self.get_content())
 
 
 class Rule(Storable):
@@ -156,7 +156,10 @@ class SimplePonyNodeStorage(snakemaketools.rules.NodeStorage):
             # NOTE: even if ever inputs for Config.GETINSERT and Rule.GETINSERT would
             # coincide, that would not result in an error while calling GET of either
             # Config nor Rule. But would for Storable.
-            storable_id = config_id = Config.GETINSERT(**config.parsed)
+            storable_id = config_id = Config.GETINSERT(
+                parsed=config.parsed,
+                serialized=config.serialized,
+            )
             rule_id = None
             for location_wildcard in config.location_wildcards:
                 assert location_wildcard not in location_wildcards
@@ -189,7 +192,7 @@ class SimplePonyNodeStorage(snakemaketools.rules.NodeStorage):
         return Rule[rule_id].get_input_nodes()
 
     @db_session
-    def get_config(self, location: str) -> str:
+    def get_config(self, location: str) -> DotDict:
         node = Storable[Storable.GET(location=location)]
         assert isinstance(node, Node), "Snakemake did not ask for a config."
         assert node.config_id != None

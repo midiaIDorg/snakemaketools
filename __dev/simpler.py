@@ -63,6 +63,9 @@ for file, rule_configs in iter_configs(pathlib.Path("workflow").glob("**/*.smk")
             **rule_config,
         )
 
+# TODO: infer expected_wildcards from config location strings. 
+
+
 # wildcards
 dataset = "G8027"
 calibration = "G8045" # | = None
@@ -78,7 +81,19 @@ wildcards = DotDict()
 for wildcard_name, wildcard_value in str_wildcards.items():
     wildcards[wildcard_name] = snakemaketools.rules.Wildcard(wildcard_value)
 
+nodes = midia_pipe_hull.pipelines.base.get_nodes(
+    rules=rules,
+    configs=configs,
+    wildcards=wildcards
+)
+list(nodes)
 
+
+
+
+# x = Config[Node[nodes.tims_precursor_clusterer_config.db_node_id].config_id].get_config()
+# x.serialized
+# Config[Node[nodes.tims_precursor_clusterer_config.db_node_id].config_id].serialized_content
 
 # with open(f"configs/rules.json", "r") as f:
 #     rule_configs2 = json.load(f)
@@ -99,12 +114,6 @@ for wildcard_name, wildcard_value in str_wildcards.items():
 #             string=expected_output.location, **wildcards
 #         )
 
-nodes = midia_pipe_hull.pipelines.base.get_nodes(
-    rules=rules,
-    configs=configs,
-    wildcards=wildcards
-)
-list(nodes)
 
 nodes.precursor_clusters_hdf.location
 nodes.precursor_clustering_qc.location

@@ -216,5 +216,5 @@ class NodeStorage(abc.ABC):
         """Get names of input and their paths for a given rule_id."""
 
     @abc.abstractmethod
-    def get_config(self, location: str) -> str:
+    def get_config(self, location: str) -> DotDict:
         """Get a string with config that is supposed to be saved under the proded location."""
