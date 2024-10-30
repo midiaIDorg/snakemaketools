@@ -5,16 +5,12 @@ would be nicer to add some level of abstraction so that Rule is an interface wit
 from __future__ import annotations
 
 import abc
-import collections.abc
 import copy
 import dataclasses
-import functools
-import json
 import typing
-from typing import Protocol
+from collections.abc import Callable
 
 import snakemaketools.parsers
-import toml
 from snakemaketools.datastructures import DotDict
 
 
@@ -22,56 +18,74 @@ from snakemaketools.datastructures import DotDict
 class Node:
     """An object representing an entity used in the pipeline."""
 
-    location: str | None = None
+    location: str = ""
     type: typing.Type | str | None = None
-    _debug: dict = dataclasses.field(default_factory=dict)
+    db_node_id: int | None = None
 
     def __iter__(self):
         yield "location", self.location
         yield "type", self.type
 
     def copy(self) -> Node:
-        return self.__class__(
-            location=self.location,
-            type=self.type,
-        )
+        return copy.deepcopy(self)
 
 
 @dataclasses.dataclass
 class Wildcard:
     """An object representing a wildcard."""
 
+    name: str
     value: str = ""
     type: typing.Type | None = None
+
+    def __post_init__(self):
+        assert self.name != "id", "Wildcard name `id` is reserved."
 
 
 @dataclasses.dataclass
 class Config:
-    """An object representing a config and its meta information."""
+    """
+    An object representing a config for some specific rule.
+
+    Arguments:
+        serialized (str): Serialized version of the config.
+        parsed (dict): Parsed config, mapping name to value.
+        location_wildcards (dict): Represent parts of the config that should fill the `get_config_from_db_into_file_system` location.
+    """
 
     serialized: str
     parsed: dict
-    meta: dict
+    location_wildcards: DotDict[str, str]
 
     @classmethod
-    def from_config(
+    def new(
         cls,
-        config,
-        format: str,
+        config: dict | str,
+        extension: str,
         _converters: dict[
             str, snakemaketools.parsers.DictSerializer
         ] = snakemaketools.parsers.serializers,
-        **meta,
+        **location_wildcards: str,
     ):
         if isinstance(config, str):
             serialized = config
-            parsed = _converters[format].loads(config)
+            parsed = _converters[extension].loads(config)
         elif isinstance(config, dict):
-            serialized = _converters[format].dumps(config)
+            serialized = _converters[extension].dumps(config)
             parsed = config
         else:
             raise ValueError
-        return cls(serialized=serialized, parsed=parsed, meta=meta)
+        location_wildcards["extension"] = extension
+        return cls(
+            serialized=serialized,
+            parsed=parsed,
+            location_wildcards=DotDict(location_wildcards),
+        )
+
+
+@dataclasses.dataclass
+class RuleArgs:
+    expected_inputs: dict[str, Node]
 
 
 @dataclasses.dataclass
@@ -81,8 +95,14 @@ class Rule:
     expected_inputs: dict[str, Node]
     expected_outputs: tuple[Node, ...]
     expected_wildcards: dict[str, Wildcard]
+    config_setter: bool = False
 
-    # TODO: make obsolete
+    def __post_init__(self):
+        if self.config_setter:
+            assert (
+                len(self.expected_inputs) == 0
+            ), "A config setter should not expect any inputs."
+
     @classmethod
     def from_config(
         cls,
@@ -91,6 +111,9 @@ class Rule:
         expected_outputs: dict,
         expected_inputs: dict = {},
         expected_wildcards: dict = {},
+        config_setter: bool = False,
+        node_factory: Callable[..., Node] = Node,
+        wildcard_factory: Callable[..., Wildcard] = Wildcard,
     ):
         assert (
             len(expected_outputs) > 0
@@ -99,76 +122,56 @@ class Rule:
             name=rule_name,
             node_storage=node_storage,
             expected_inputs={
-                node_name: node_storage.node_factory(**node_info)
+                node_name: node_factory(**node_info)
                 for node_name, node_info in expected_inputs.items()
             },
             expected_outputs=tuple(
-                node_storage.node_factory(**expected_output)
-                for expected_output in expected_outputs
+                node_factory(**expected_output) for expected_output in expected_outputs
             ),
             expected_wildcards={
-                wildcard_name: node_storage.wildcard_factory(**wildcard_info)
+                wildcard_name: wildcard_factory(name=wildcard_name, **wildcard_info)
                 for wildcard_name, wildcard_info in expected_wildcards.items()
             },
-        )
-
-    @classmethod
-    def from_toml(
-        cls,
-        node_storage: NodeStorage,
-        rule_name: str,
-        outputs: list[str],
-        inputs: list[str] = [],
-        wildcards: list[str] = [],
-    ):
-        assert (
-            len(outputs) > 0
-        ), "A rule without expected outputs does not find place in Snakemake."
-        return cls(
-            name=rule_name,
-            node_storage=node_storage,
-            expected_inputs={
-                node_name: node_storage.node_factory(**node_info)
-                for node_name, node_info in expected_inputs.items()
-            },
-            expected_outputs=tuple(
-                node_storage.node_factory(**expected_output)
-                for expected_output in expected_outputs
-            ),
-            expected_wildcards={
-                wildcard_name: node_storage.wildcard_factory(**wildcard_info)
-                for wildcard_name, wildcard_info in expected_wildcards.items()
-            },
+            config_setter=config_setter,
         )
 
     def run(
         self,
-        config: Config | None,
-        input_nodes: dict[str, Node],
+        inputs: dict[str, Node],
         wildcards: dict[str, Wildcard],
+        config: Config | None,
     ) -> tuple[Node, ...] | Node:
-        for node_name, node in input_nodes.items():
+        if self.config_setter:
+            assert config is not None, "Config setter did not receive any Config."
+            assert isinstance(  # TODO: use typeguard module?
+                config, Config
+            ), "Please provide a Config or an inheriter."
             assert (
-                node_name in self.expected_inputs
-            ), f"Node `{node_name}` not among expected inputs: `{self.expected_inputs}`."
-
-            expected_type = self.expected_inputs[node_name].type
-            if expected_type != None:
+                len(inputs) == 0
+            ), "config setting rules only take `Config` argument. Provided `inputs`."
+        else:
+            for node_name, node in inputs.items():
                 assert (
-                    node.type == expected_type
-                ), f"Types mismatch: `{node_name}` is of type `{node.type}`. Its expected type is `{expected_type}`."
+                    node_name in self.expected_inputs
+                ), f"Node `{node_name}` not among expected inputs: `{self.expected_inputs}`."
 
-        for expected_input in self.expected_inputs:
-            assert expected_input in input_nodes, f"Missing input `{expected_input}`."
+                expected_type = self.expected_inputs[node_name].type
+                if expected_type != None:
+                    assert (
+                        node.type == expected_type
+                    ), f"Types mismatch: `{node_name}` is of type `{node.type}`. Its expected type is `{expected_type}`."
 
-        for wildcard_name in wildcards:
-            assert wildcard_name in self.expected_wildcards
+            for expected_input in self.expected_inputs:
+                assert expected_input in inputs, f"Missing input `{expected_input}`."
 
-        for wildcard_name in self.expected_wildcards:
-            assert wildcard_name in wildcards
+            for wildcard_name in wildcards:
+                assert wildcard_name in self.expected_wildcards
+
+            for wildcard_name in self.expected_wildcards:
+                assert wildcard_name in wildcards
 
         outputs = self.node_storage.get_outputs(
-            inputs=input_nodes,
+            inputs=inputs,
             expected_outputs=self.expected_outputs,
             config=config,
             wildcards=wildcards,
@@ -179,40 +182,32 @@ class Rule:
 
         return outputs
 
-    # TODO: should allow for *args inputs, not only **nargs. Like any function???
-    def __call__(self, **inputs: Node) -> tuple[Node, ...] | Node:
+    def __call__(
+        self, config: Config | None = None, **inputs: Node | Wildcard
+    ) -> tuple[Node, ...] | Node:
         nodes: dict[str, Node] = {}
         wildcards: dict[str, Wildcard] = {}
-        config = None
         for key, value in inputs.items():
             if isinstance(value, Node):
                 nodes[key] = value
             elif isinstance(value, Wildcard):
                 wildcards[key] = value
-            elif isinstance(value, Config):
-                assert (
-                    config == None
-                ), "You passed in two configs whereas at most one is accepted."
-                config = value
             else:
                 raise ValueError(
-                    f"Passed in a value that is not a string nor a Node (or inheriting therefrom)."
+                    f"Rule `{self.name}` received an invalid type: {type(value).__name__}."
                 )
-        return self.run(config=config, input_nodes=nodes, wildcards=wildcards)
+        return self.run(inputs=nodes, wildcards=wildcards, config=config)
 
 
 @dataclasses.dataclass
 class NodeStorage(abc.ABC):
-    node_factory: collections.abc.Callable[..., Node] = Node
-    wildcard_factory: collections.abc.Callable[..., Wildcard] = Wildcard
-
     @abc.abstractmethod
     def get_outputs(
         self,
         inputs: dict[str, Node],
         expected_outputs: tuple[Node, ...],
         wildcards: dict[str, Wildcard],
-        config: Config | None = None,
+        config: Config | None,
     ) -> tuple[Node, ...]:
         """Get output nodes"""
 

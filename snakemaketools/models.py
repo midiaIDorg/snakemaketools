@@ -8,17 +8,16 @@ from __future__ import annotations
 import dataclasses
 import json
 
+import snakemaketools.db_config
 import snakemaketools.rules
 from pony.orm import Optional, PrimaryKey, Required, commit, db_session
 from snakemaketools.datastructures import DotDict
-from snakemaketools.db_config import db
 
 
-class Storable(db.Entity):
+class Storable(snakemaketools.db_config.db.Entity):
     """A general entry in a DB.
 
-    Only one table is needed to represent all things on this approach.
-
+    Only one DB table is used to represent all inheritance structure by PonyORM.
     Everything is indexed by the json-serialized content string.
     """
 
@@ -67,14 +66,19 @@ class Rule(Storable):
             for node_name, node_id in self.get_content().items()
         }
 
+    @classmethod
+    def GETINSERT_RULEID(cls, inputs: dict[str, snakemaketools.rules.Node]) -> int:
+        return cls.GETINSERT(
+            **{name: Node.GET(location=node.location) for name, node in inputs.items()}
+        )
+
 
 class Node(Storable):
     """Any meaningul pipeline entity."""
 
     rule_id = Optional(int)
     config_id = Optional(int)
-    # only to store info from a potential subclass of Node:
-    serialized_additional_content = Optional(str)
+    serialized_additional_content = Optional(str)  # for subclasses
 
     @db_session
     def get_parent_nodes(self) -> DotDict[str, dict]:
@@ -104,6 +108,9 @@ class Node(Storable):
         config_id=None,
         **additional_content,
     ) -> int:
+        assert (
+            "{" not in location or "}" not in location
+        ), f"Some wildcards left unfilled before storing in the DB in\n`{location}`\n."
         serialized_content = json.dumps(
             {"location": location},
             sort_keys=True,
@@ -131,67 +138,45 @@ class Node(Storable):
 class SimplePonyNodeStorage(snakemaketools.rules.NodeStorage):
     """Implementation of a general NodeStorage Protocol using Pony ORM."""
 
-    debug: bool = False
-
     def get_outputs(
         self,
-        expected_inputs: dict[str, snakemaketools.rules.Node],
+        inputs: dict[str, snakemaketools.rules.Node],
         expected_outputs: tuple[snakemaketools.rules.Node, ...],
         wildcards: dict[str, snakemaketools.rules.Wildcard],
-        config: snakemaketools.rules.Config | None = None,
-        # config: snakemaketools.rules.Config | str | None = None,
+        config: snakemaketools.rules.Config | None,
     ) -> tuple[snakemaketools.rules.Node, ...]:
-        """Create output nodes for a given rule."""
-
-        # NOTE: even if ever inputs for Config.GETINSERT and Rule.GETINSERT would
-        # coincide, that would not result in an error while calling GET of either
-        # Config nor Rule. But would for Storable.
-        if config != None:
-            # if isinstance(config, str):
-            #     config = {"config": config}
-            # assert "config_id" not in config, "Do not put `config_id` key into config."
-            # assert "rule_id" not in config, "Do not put `rule_id` key into config."
-            storable_id = config_id = Config.GETINSERT(**config.parsed)
-            rule_id = None
-        else:
-            storable_id = rule_id = Rule.GETINSERT(
-                **{
-                    name: Node.GET(location=node.location)
-                    for name, node in expected_inputs.items()
-                }
-            )
-            config_id = None
-
-        outputs = []
-        assert "id" not in wildcards
-
-        path_wildcards = {
+        """
+        Create output nodes for a given rule.
+        """
+        location_wildcards = {
             wildcard_name: wildcard.value
             for wildcard_name, wildcard in wildcards.items()
         }
-        if config != None:
-            for name, value in config.meta.items():
-                assert (
-                    name not in path_wildcards
-                ), f"Wildcard `{name}` found both among Wildcards and Config.meta."
-                path_wildcards[name] = value
+        if config is not None:
+            # NOTE: even if ever inputs for Config.GETINSERT and Rule.GETINSERT would
+            # coincide, that would not result in an error while calling GET of either
+            # Config nor Rule. But would for Storable.
+            storable_id = config_id = Config.GETINSERT(**config.parsed)
+            rule_id = None
+            for location_wildcard in config.location_wildcards:
+                assert location_wildcard not in location_wildcards
+            location_wildcards.update(config.location_wildcards)
+        else:
+            storable_id = rule_id = Rule.GETINSERT_RULEID(inputs)
+            config_id = None
 
+        outputs = []
         for expected_output in expected_outputs:
             node = expected_output.copy()
             node.location = node.location.format(
                 id=storable_id,
-                **path_wildcards,
+                **location_wildcards,
             )
-            db_node_id = Node.GETINSERT(
+            node.db_node_id = Node.GETINSERT(
                 rule_id=rule_id,
                 config_id=config_id,
                 location=node.location,
-                # **dict(node),
             )
-            if self.debug:
-                node._debug["rule_id"] = rule_id
-                node._debug["config_id"] = config_id
-                node._debug["db_node"] = db_node_id
             outputs.append(node)
         return tuple(outputs)
 

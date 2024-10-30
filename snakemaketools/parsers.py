@@ -39,7 +39,7 @@ def comment_based_toml_extractor(
             conf = "\n".join(buffer)
             tomls.append(toml.loads(conf))
         elif recording:
-            assert line.startswith(_comment_tag), line
+            assert line.startswith(_comment_tag), f"Problem in:\n{buffer}"
             line = line[len(_comment_tag) :]
             buffer.append(line)
         else:
@@ -50,11 +50,18 @@ def comment_based_toml_extractor(
     return tomls
 
 
-def iter_lines_recursively(root: pathlib.Path | str, pattern: str = "**/*.smk"):
-    for path in pathlib.Path(root).glob(pattern):
+def iter_configs(
+    paths: typing.Iterable[pathlib.Path],
+    config_extractor=comment_based_toml_extractor,
+) -> typing.Iterable[tuple[pathlib.Path, list[dict]]]:
+    for path in paths:
         with open(path, "r") as f:
-            for line in f:
-                yield line
+            try:
+                configs = list(config_extractor(f.readlines()))
+                if len(configs) > 0:
+                    yield path, configs
+            except AssertionError as exc:
+                raise AssertionError(f"Problem in {path}: {exc}")
 
 
 def cast_to_int_or_float(x):

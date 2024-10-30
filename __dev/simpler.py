@@ -5,6 +5,9 @@
 # TODO: there should be a mapping between name of script and its executable?
 # TODO; these functions should be simply declared somehow in scripts.
 # FOR NOW, assume that they are using named arguments.
+
+
+# TODO: turn this thing below into a click script shiped with snakemaketools.
 %load_ext autoreload
 %autoreload 2
 from __future__ import annotations
@@ -24,14 +27,14 @@ import toml
 from pony.orm import (Database, Optional, PrimaryKey, Required, Set, commit,
                       composite_index, db_session, set_sql_debug)
 from snakemaketools.datastructures import DotDict
+from snakemaketools.db_config import db
 # how should one parse in resources?
 # simply in the wildcards would be OK
 # but those will need to be then somehow stored in a some place.
 # the general paths could simply store them.
 from snakemaketools.encodings import partial_format
 from snakemaketools.models import *
-from snakemaketools.parsers import (comment_based_toml_extractor,
-                                    iter_lines_recursively)
+from snakemaketools.parsers import iter_configs
 
 # set_sql_debug()
 # db.bind(provider='sqlite', filename=':memory:', create_db=True)
@@ -39,42 +42,43 @@ from snakemaketools.parsers import (comment_based_toml_extractor,
 db.bind(provider='sqlite', filename='/home/matteo/Projects/midia/pipelines/devel/midia_pipe/base.sqlite', create_db=True)
 db.generate_mapping(create_tables=True)
 
+
 config = "default"
 with open(f"configs/consolidated/default.toml", "r") as f:
     consolidated_config = toml.load(f)
 
 configs = DotDict()
 for name, config in consolidated_config.items():
-    if "config" in config:
-        configs[name] = snakemaketools.rules.Config.from_config(**config)
+    if name not in ("wildcards", "wishlist"):
+        configs[name] = snakemaketools.rules.Config.new(**config, rule_name=name)
 
-configs.precursor_clusterer.parsed
+node_storage = SimplePonyNodeStorage()
+raw_rule_configs = DotDict()
+rules = DotDict()
+for file, rule_configs in iter_configs(pathlib.Path("workflow").glob("**/*.smk")):
+    for rule_config in rule_configs:
+        raw_rule_configs[rule_config["rule_name"]] = rule_config
+        rules[rule_config["rule_name"]] = snakemaketools.rules.Rule.from_config(
+            node_storage=node_storage,
+            **rule_config,
+        )
 
-configs.matching.serialized
-configs.matching.parsed
-configs.precursor_clusterer.serialized
-
-# OK, so now the configs have a specific field that can be used to store things.
-# the concept of a config is crucial for hte pipeline to work, as they control the bloody shitty shits.
-
-# TODO: add configs properly into the pipeline and make it simple to call them and get unique address.
-
-
-# general wildcards: it should be possible to either provide those directly or in the config.
+# wildcards
 dataset = "G8027"
 calibration = "G8045" # | = None
 fasta = "Human_2024_02_16_UniProt_Taxon9606_Reviewed_20434entries_contaminant_tenzer"
 
-node_storage = SimplePonyNodeStorage(debug=True)
-rule_configs = comment_based_toml_extractor(iter_lines_recursively(root="workflow"))
-rules = DotDict()
-for rule_config in rule_configs:
-    rule_name = rule_config.pop("rule_name")
-    rules[rule_name] = snakemaketools.rules.Rule.from_config(
-        rule_name=rule_name,
-        node_storage=node_storage,
-        **rule_config
-    )
+str_wildcards = DotDict(
+    dataset=dataset,
+    calibration=calibration,
+    fasta=fasta,
+    **consolidated_config["wildcards"]
+)
+wildcards = DotDict()
+for wildcard_name, wildcard_value in str_wildcards.items():
+    wildcards[wildcard_name] = snakemaketools.rules.Wildcard(wildcard_value)
+
+
 
 # with open(f"configs/rules.json", "r") as f:
 #     rule_configs2 = json.load(f)
@@ -88,16 +92,6 @@ for rule_config in rule_configs:
 #         **rule_config
 #     )
 
-str_wildcards = DotDict(
-    dataset=dataset,
-    calibration=calibration,
-    fasta=fasta,
-    **consolidated_config["wildcards"]
-)
-wildcards = DotDict()
-for wildcard_name, wildcard_value in str_wildcards.items():
-    wildcards[wildcard_name] = snakemaketools.rules.Wildcard(wildcard_value)
-assert "id" not in wildcards
 
 # for rule in rules.values():
 #     for expected_output in rule.expected_outputs:
