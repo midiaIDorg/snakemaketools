@@ -19,12 +19,8 @@ class Node:
     """An object representing an entity used in the pipeline."""
 
     location: str = ""
-    type: typing.Type | str | None = None
     db_node_id: int | None = None
-
-    def __iter__(self):
-        yield "location", self.location
-        yield "type", self.type
+    type: typing.Type | str | None = None  # like for future
 
     def copy(self) -> Node:
         return copy.deepcopy(self)
@@ -40,6 +36,11 @@ class Wildcard:
 
     def __post_init__(self):
         assert self.name != "id", "Wildcard name `id` is reserved."
+
+    @classmethod
+    def from_location(cls, location: str) -> Wildcard:
+        """This parser should depend on something."""
+        return cls(name=snakemaketools.parsers.get_wildcards(location))
 
 
 @dataclasses.dataclass
@@ -108,9 +109,8 @@ class Rule:
         cls,
         rule_name: str,
         node_storage: NodeStorage,
-        expected_outputs: dict,
+        expected_outputs: list[dict],
         expected_inputs: dict = {},
-        expected_wildcards: dict = {},
         config_setter: bool = False,
         node_factory: Callable[..., Node] = Node,
         wildcard_factory: Callable[..., Wildcard] = Wildcard,
@@ -118,6 +118,10 @@ class Rule:
         assert (
             len(expected_outputs) > 0
         ), "A rule without expected outputs does not find place in Snakemake."
+        expected_wildcards = snakemaketools.parsers.extract_wildcards(
+            [expected_output["location"] for expected_output in expected_outputs]
+        )
+
         return cls(
             name=rule_name,
             node_storage=node_storage,

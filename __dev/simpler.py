@@ -32,7 +32,7 @@ from snakemaketools.db_config import db
 # simply in the wildcards would be OK
 # but those will need to be then somehow stored in a some place.
 # the general paths could simply store them.
-from snakemaketools.encodings import partial_format
+from snakemaketools.encodings import iter_brackets, partial_format
 from snakemaketools.models import *
 from snakemaketools.parsers import iter_configs
 
@@ -63,9 +63,7 @@ for file, rule_configs in iter_configs(pathlib.Path("workflow").glob("**/*.smk")
             **rule_config,
         )
 
-# TODO: infer expected_wildcards from config location strings. 
-
-
+# TODO: get the infrastructure to get the outputs back to the users.
 # wildcards
 dataset = "G8027"
 calibration = "G8045" # | = None
@@ -80,6 +78,9 @@ str_wildcards = DotDict(
 wildcards = DotDict()
 for wildcard_name, wildcard_value in str_wildcards.items():
     wildcards[wildcard_name] = snakemaketools.rules.Wildcard(wildcard_value)
+
+
+
 
 nodes = midia_pipe_hull.pipelines.base.get_nodes(
     rules=rules,
