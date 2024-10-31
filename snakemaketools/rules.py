@@ -122,20 +122,17 @@ class Rule:
         assert (
             len(expected_outputs) > 0
         ), "A rule without expected outputs does not find place in Snakemake."
-        expected_wildcards = snakemaketools.parsers.extract_wildcards(
-            [expected_output["location"] for expected_output in expected_outputs]
-        )
-
         locations = [
             expected_output["location"] for expected_output in expected_outputs
         ]
         expected_wildcard_sets = list(map(wildcard_factory.from_location, locations))
-        expected_wildcards = {}
-        for i in range(1, len(expected_wildcard_sets)):
-            assert set(expected_wildcard_sets[0]) == set(
-                expected_wildcard_sets[i]
+        expected_wildcards = (
+            expected_wildcard_sets.pop() if expected_wildcard_sets else {}
+        )
+        for i, wildcards_from_other_locations in enumerate(expected_wildcard_sets, 1):
+            assert set(wildcards_from_other_locations) == set(
+                expected_wildcards
             ), f"All locations should share their wildcards. However, it is not the case for `{locations[0]}` and `{locations[i]}`"
-            expected_wildcards = expected_wildcard_sets[i]
 
         return cls(
             name=rule_name,

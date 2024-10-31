@@ -52,6 +52,8 @@ for name, config in consolidated_config.items():
     if name not in ("wildcards", "wishlist"):
         configs[name] = snakemaketools.rules.Config.new(**config, rule_name=name)
 
+
+
 node_storage = SimplePonyNodeStorage()
 raw_rule_configs = DotDict()
 rules = DotDict()
@@ -77,10 +79,7 @@ str_wildcards = DotDict(
 )
 wildcards = DotDict()
 for wildcard_name, wildcard_value in str_wildcards.items():
-    wildcards[wildcard_name] = snakemaketools.rules.Wildcard(wildcard_value)
-
-
-
+    wildcards[wildcard_name] = snakemaketools.rules.Wildcard(name=wildcard_name, value=wildcard_value)
 
 nodes = midia_pipe_hull.pipelines.base.get_nodes(
     rules=rules,
