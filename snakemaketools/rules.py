@@ -195,16 +195,21 @@ class Rule:
 
         return outputs
 
-    def __call__(
-        self, config: Config | None = None, **inputs: Node | Wildcard
-    ) -> tuple[Node, ...] | Node:
+    def __call__(self, **inputs: Node | Wildcard) -> tuple[Node, ...] | Node:
         nodes: dict[str, Node] = {}
         wildcards: dict[str, Wildcard] = {}
+        config: Config | None = None
         for key, value in inputs.items():
             if isinstance(value, Node):
                 nodes[key] = value
             elif isinstance(value, Wildcard):
                 wildcards[key] = value
+            elif isinstance(value, Config):
+                assert (
+                    self.config_setter
+                ), "Passed in Config to rule that is not a config_setter."
+                assert config is None, "can only set config once."
+                config = value
             else:
                 raise ValueError(
                     f"Rule `{self.name}` received an invalid type: {type(value).__name__}."
