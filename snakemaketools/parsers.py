@@ -104,17 +104,3 @@ serializers = {
 
 def get_wildcards(text: str) -> set[str]:
     return set(iter_brackets(text, "{", "}"))
-
-
-def extract_wildcards(locations: list[str]) -> dict[str, dict]:
-    """This parser should depend on something."""
-    wildcards = {}
-    expected_wildcard_sets = list(map(get_wildcards, locations))
-    for i in range(1, len(expected_wildcard_sets)):
-        assert (
-            expected_wildcard_sets[0] == expected_wildcard_sets[i]
-        ), f"All locations should share their wildcards. However, it is not the case for `{locations[0]}` and `{locations[i]}`"
-        for wildcard in expected_wildcard_sets[i]:
-            wildcards[wildcard] = {}
-    wildcards.pop("id", None)
-    return wildcards

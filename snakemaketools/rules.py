@@ -33,14 +33,23 @@ class Wildcard:
     name: str
     value: str = ""
     type: typing.Type | None = None
+    _reserved_wildcard: str = "id"
 
     def __post_init__(self):
-        assert self.name != "id", "Wildcard name `id` is reserved."
+        assert self.name != self._reserved_wildcard, "Wildcard name `id` is reserved."
 
     @classmethod
-    def from_location(cls, location: str) -> Wildcard:
-        """This parser should depend on something."""
-        return cls(name=snakemaketools.parsers.get_wildcards(location))
+    def from_location(
+        cls,
+        location: str,
+        _parser: Callable[[str], list[str]] = snakemaketools.parsers.get_wildcards,
+    ) -> dict[str, Wildcard]:
+        wildcards = {
+            wildcard_name: cls(name=wildcard_name)
+            for wildcard_name in _parser(location)
+            if wildcard_name != cls._reserved_wildcard
+        }
+        return wildcards
 
 
 @dataclasses.dataclass
@@ -85,11 +94,6 @@ class Config:
 
 
 @dataclasses.dataclass
-class RuleArgs:
-    expected_inputs: dict[str, Node]
-
-
-@dataclasses.dataclass
 class Rule:
     name: str
     node_storage: NodeStorage
@@ -122,6 +126,17 @@ class Rule:
             [expected_output["location"] for expected_output in expected_outputs]
         )
 
+        locations = [
+            expected_output["location"] for expected_output in expected_outputs
+        ]
+        expected_wildcard_sets = list(map(wildcard_factory.from_location, locations))
+        expected_wildcards = {}
+        for i in range(1, len(expected_wildcard_sets)):
+            assert set(expected_wildcard_sets[0]) == set(
+                expected_wildcard_sets[i]
+            ), f"All locations should share their wildcards. However, it is not the case for `{locations[0]}` and `{locations[i]}`"
+            expected_wildcards = expected_wildcard_sets[i]
+
         return cls(
             name=rule_name,
             node_storage=node_storage,
@@ -132,10 +147,7 @@ class Rule:
             expected_outputs=tuple(
                 node_factory(**expected_output) for expected_output in expected_outputs
             ),
-            expected_wildcards={
-                wildcard_name: wildcard_factory(name=wildcard_name, **wildcard_info)
-                for wildcard_name, wildcard_info in expected_wildcards.items()
-            },
+            expected_wildcards=expected_wildcards,
             config_setter=config_setter,
         )
 
