@@ -55,6 +55,18 @@ class Wildcard:
     def from_named_values(cls, **kwargs: str) -> dict[str, Wildcard]:
         return {name: cls(name=name, value=value) for name, value in kwargs.items()}
 
+    def __eq__(self, other):
+        if isinstance(other, str):
+            return self.value == other
+        elif isinstance(other, Wildcard):
+            return (
+                self.name == other.name
+                and self.value == other.value
+                and self.type == other.type
+            )
+        else:
+            return False
+
 
 @dataclasses.dataclass
 class Config:

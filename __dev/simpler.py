@@ -1,14 +1,7 @@
 # TODO: get the infrastructure to get the outputs back to the users.
-# TODO: cool idea: make a script that checks for the all constrained occurences of an object in a database.
-# TODO: make a scipt that given a path, reports back all of the steps needed to make this. But for that: we will need the rules to actually save their names.
-#TODO: the test run can be simply executed first on the in-memory DB. only then in the perment one.
-# TODO: there shouuld be a default node location corresponding to the general rule.
-# TODO: there should be a mapping between name of script and its executable?
-# TODO; these functions should be simply declared somehow in scripts.
-# FOR NOW, assume that they are using named arguments.
-
-
+# TODO: the test run can be simply executed first on the in-memory DB. only then in the perment one.
 # TODO: turn this thing below into a click script shiped with snakemaketools.
+
 %load_ext autoreload
 %autoreload 2
 from __future__ import annotations
@@ -29,13 +22,16 @@ from pony.orm import (Database, Optional, PrimaryKey, Required, Set, commit,
                       composite_index, db_session, set_sql_debug)
 from snakemaketools.datastructures import DotDict
 from snakemaketools.db_config import db
-# how should one parse in resources?
-# simply in the wildcards would be OK
-# but those will need to be then somehow stored in a some place.
-# the general paths could simply store them.
 from snakemaketools.encodings import iter_brackets, partial_format
 from snakemaketools.models import *
 from snakemaketools.parsers import iter_configs
+from snakemaketools.rules import Config, Node, Rule, Wildcard
+
+# TODO:
+# rename 
+# configs.precursor_clusterer.location_wildcards.name -> 
+# configs.precursor_clusterer.location_wildcards.mslevel
+# expeced_wildcards should be a DotDict.
 
 # set_sql_debug()
 # wildcards
