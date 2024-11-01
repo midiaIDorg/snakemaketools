@@ -1,3 +1,4 @@
+# TODO: get the infrastructure to get the outputs back to the users.
 # TODO: cool idea: make a script that checks for the all constrained occurences of an object in a database.
 # TODO: make a scipt that given a path, reports back all of the steps needed to make this. But for that: we will need the rules to actually save their names.
 #TODO: the test run can be simply executed first on the in-memory DB. only then in the perment one.
@@ -37,23 +38,26 @@ from snakemaketools.models import *
 from snakemaketools.parsers import iter_configs
 
 # set_sql_debug()
-# db.bind(provider='sqlite', filename=':memory:', create_db=True)
+# wildcards
+dataset = "G8027"
+calibration = "G8045" # | = None
+fasta = "Human_2024_02_16_UniProt_Taxon9606_Reviewed_20434entries_contaminant_tenzer"
+consolidated_config_path = "configs/consolidated/default.toml"
+# db_path = ":memory:"
+db_path = "/home/matteo/Projects/midia/pipelines/devel/midia_pipe/base.sqlite"
 
-db.bind(provider='sqlite', filename='/home/matteo/Projects/midia/pipelines/devel/midia_pipe/base.sqlite', create_db=True)
+db.bind(provider='sqlite', filename=db_path, create_db=True)
 db.generate_mapping(create_tables=True)
 
-
-config = "default"
-with open(f"configs/consolidated/default.toml", "r") as f:
-    consolidated_config = toml.load(f)
+with open(consolidated_config_path, "r") as f:
+    consolidated_config = DotDict(toml.load(f))
 
 configs = DotDict()
 for name, config in consolidated_config.items():
     if name not in ("wildcards", "wishlist"):
         configs[name] = snakemaketools.rules.Config.new(**config, rule_name=name)
 
-
-
+# location wildcards must be Wildcards.
 node_storage = SimplePonyNodeStorage()
 raw_rule_configs = DotDict()
 rules = DotDict()
@@ -64,12 +68,6 @@ for file, rule_configs in iter_configs(pathlib.Path("workflow").glob("**/*.smk")
             node_storage=node_storage,
             **rule_config,
         )
-
-# TODO: get the infrastructure to get the outputs back to the users.
-# wildcards
-dataset = "G8027"
-calibration = "G8045" # | = None
-fasta = "Human_2024_02_16_UniProt_Taxon9606_Reviewed_20434entries_contaminant_tenzer"
 
 str_wildcards = DotDict(
     dataset=dataset,

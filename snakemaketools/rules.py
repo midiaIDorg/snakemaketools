@@ -51,6 +51,10 @@ class Wildcard:
         }
         return wildcards
 
+    @classmethod
+    def from_named_values(cls, **kwargs: str) -> dict[str, Wildcard]:
+        return {name: cls(name=name, value=value) for name, value in kwargs.items()}
+
 
 @dataclasses.dataclass
 class Config:
@@ -65,17 +69,20 @@ class Config:
 
     serialized: str
     parsed: dict
-    location_wildcards: DotDict[str, str]
+    location_wildcards: DotDict[str, Wildcard]
 
     @classmethod
     def new(
         cls,
         config: dict | str,
-        extension: str,
+        extension: Wildcard,  # a required Wildcard
         _converters: dict[
             str, snakemaketools.parsers.DictSerializer
         ] = snakemaketools.parsers.serializers,
-        **location_wildcards: str,
+        _to_wildcards: Callable[
+            [dict[str, str]], Wildcard
+        ] = Wildcard.from_named_values,
+        **location_wildcards: Wildcard,
     ):
         if isinstance(config, str):
             serialized = config
@@ -86,6 +93,7 @@ class Config:
         else:
             raise ValueError
         location_wildcards["extension"] = extension
+        location_wildcards = _to_wildcards(**location_wildcards)
         return cls(
             serialized=serialized,
             parsed=parsed,
@@ -178,10 +186,14 @@ class Rule:
                 assert expected_input in inputs, f"Missing input `{expected_input}`."
 
             for wildcard_name in wildcards:
-                assert wildcard_name in self.expected_wildcards
+                assert (
+                    wildcard_name in self.expected_wildcards
+                ), f"Providing an unexpected wildcard `{wildcard_name}`"
 
             for wildcard_name in self.expected_wildcards:
-                assert wildcard_name in wildcards
+                assert (
+                    wildcard_name in wildcards
+                ), f"Missing expected wildcard `{wildcard_name}`."
 
         outputs = self.node_storage.get_outputs(
             inputs=inputs,
