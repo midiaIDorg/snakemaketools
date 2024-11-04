@@ -15,11 +15,13 @@ from functools import partial
 from pprint import pprint
 from types import SimpleNamespace
 
-import midia_pipe_hull.pipelines.base
-import snakemaketools.rules
 import toml
 from pony.orm import (Database, Optional, PrimaryKey, Required, Set, commit,
                       composite_index, db_session, set_sql_debug)
+
+import midia_pipe_hull.pipelines.base
+import snakemaketools.models
+import snakemaketools.rules
 from snakemaketools.datastructures import DotDict
 from snakemaketools.db_config import db
 from snakemaketools.encodings import iter_brackets, partial_format
@@ -53,6 +55,7 @@ for name, config in consolidated_config.items():
     if name not in ("wildcards", "wishlist"):
         configs[name] = snakemaketools.rules.Config.new(**config, rule_name=name)
 
+# somehow Wildcards are directly saved to DB....
 # location wildcards must be Wildcards.
 node_storage = SimplePonyNodeStorage()
 raw_rule_configs = DotDict()
@@ -81,7 +84,6 @@ nodes = midia_pipe_hull.pipelines.base.get_nodes(
     wildcards=wildcards
 )
 list(nodes)
-
 
 
 
