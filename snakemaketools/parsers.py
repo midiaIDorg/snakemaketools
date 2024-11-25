@@ -2,10 +2,12 @@ import dataclasses
 import json
 import pathlib
 import typing
-from collections import defaultdict
+from collections import defaultdict, deque
+from pprint import pformat
 from typing import Iterable
 
 import toml
+
 from snakemaketools.encodings import iter_brackets
 
 
@@ -14,6 +16,7 @@ def comment_based_toml_extractor(
     _start_tag: str = "# TOML START",
     _stop_tag: str = "# TOML STOP",
     _comment_tag: str = "# TOML",
+    _fifo_len: int = 20,
 ) -> list[dict]:
     """
     Parse code lines for presence of toml configs.
@@ -28,7 +31,9 @@ def comment_based_toml_extractor(
     """
     tomls = []
     recording = False
+    last_few_lines = deque(maxlen=_fifo_len)
     for line in codelines:
+        last_few_lines.append(line)
         line = line.strip()
         # Detect sections based on the keywords
         if line.startswith(_start_tag):
@@ -38,7 +43,11 @@ def comment_based_toml_extractor(
             assert recording
             recording = False
             conf = "\n".join(buffer)
-            tomls.append(toml.loads(conf))
+            try:
+                tomls.append(toml.loads(conf))
+            except toml.TomlDecodeError as ex:
+                last_few_lines = "".join(list(last_few_lines))
+                raise ValueError(f"Error in lines:\n{last_few_lines}:\n{str(ex)}")
         elif recording:
             assert line.startswith(_comment_tag), f"Problem in:\n{buffer}"
             line = line[len(_comment_tag) :]

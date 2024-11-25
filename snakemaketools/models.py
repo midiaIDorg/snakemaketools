@@ -8,9 +8,10 @@ from __future__ import annotations
 import dataclasses
 import json
 
+from pony.orm import Optional, PrimaryKey, Required, commit, db_session
+
 import snakemaketools.db_config
 import snakemaketools.rules
-from pony.orm import Optional, PrimaryKey, Required, commit, db_session
 from snakemaketools.datastructures import DotDict
 
 
@@ -162,7 +163,9 @@ class SimplePonyNodeStorage(snakemaketools.rules.NodeStorage):
             )
             rule_id = None
             for name, location_wildcard in config.location_wildcards.items():
-                assert name not in location_wildcards
+                assert (
+                    name not in location_wildcards
+                ), f"`{name}` already in `location_wildcards`"
                 location_wildcards[name] = location_wildcard.value
         else:
             storable_id = rule_id = Rule.GETINSERT_RULEID(inputs)
@@ -192,5 +195,7 @@ class SimplePonyNodeStorage(snakemaketools.rules.NodeStorage):
     def get_config(self, location: str) -> DotDict:
         node = Storable[Storable.GET(location=location)]
         assert isinstance(node, Node), "Snakemake did not ask for a config."
-        assert node.config_id != None
+        assert (
+            node.config_id != None
+        ), "Passed in a node with config_id being null pointer."
         return Config[node.config_id].get_config()

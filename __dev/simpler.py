@@ -19,9 +19,12 @@ import toml
 from pony.orm import (Database, Optional, PrimaryKey, Required, Set, commit,
                       composite_index, db_session, set_sql_debug)
 
+import duckdb
 import midia_pipe_hull.pipelines.base
 import snakemaketools.models
 import snakemaketools.rules
+import tomllib
+from mmapped_df import open_dataset_dct
 from snakemaketools.datastructures import DotDict
 from snakemaketools.db_config import db
 from snakemaketools.encodings import iter_brackets, partial_format
@@ -78,12 +81,34 @@ wildcards = DotDict()
 for wildcard_name, wildcard_value in str_wildcards.items():
     wildcards[wildcard_name] = snakemaketools.rules.Wildcard(name=wildcard_name, value=wildcard_value)
 
+
+
+
 nodes = midia_pipe_hull.pipelines.base.get_nodes(
     rules=rules,
     configs=configs,
     wildcards=wildcards
 )
 list(nodes)
+
+
+
+df = open_dataset_dct("/home/matteo/test.startrek", read_write=True)
+old_df = open_dataset_dct("/home/matteo/Projects/midia/pipelines/devel/midia_pipe/tmp/clusters/tims/29/clusters.startrek")
+
+source = "/home/matteo/Projects/midia/pipelines/devel/midia_pipe/tmp/clusters/tims/29/additional_cluster_stats.parquet"
+target = "/home/matteo/test2.parquet"
+
+conn = duckdb.connect()
+conn.execute("""
+COPY (
+    SELECT 
+    ClusterID - 1 AS ClusterID,
+    * EXCLUDE ClusterID,
+    FROM "{source}"
+) TO "{target}" (FORMAT PARQUET);
+""")
+df["ClusterID"][:] = df["ClusterID"]-1
 
 
 
@@ -226,47 +251,3 @@ wishes = {wish: path_ids[wish] for wish in CONFIG["wishlist"]}
 #         analysis_tdf_bin=dict(type="tdf_bin", path="spectra/{rule_id}.d/analysis.tdf_bin"),
 #     )
 # ),
-
-    # get_tims_precursor_clustering_config=dict(
-    #     expected_inputs=dict(),
-    #     expected_outputs=dict(
-    #         tims_precursor_clustering_config=dict(
-    #             name="tims_precursor_clustering_config",
-    #             path_template="tmp/configs/tims_precursor_clustering_config/{rule_id}.config",
-    #         ),
-    #     ),
-    # ),
-    # get_tims_fragment_clustering_config=dict(
-    #     expected_inputs=dict(),
-    #     expected_outputs=dict(
-    #         tims_fragment_clustering_config=dict(
-    #             name="tims_fragment_clustering_config",
-    #             path_template="tmp/configs/tims_fragment_clustering_config/{rule_id}.config",
-    #         )
-    #     ),
-    # ),
-    # get_precursor_cluster_stats_config=dict(
-    #     expected_inputs=dict(),
-    #     expected_outputs=dict(
-    #         precursor_cluster_stats_config=dict(
-    #             name="precursor_cluster_stats_config",
-    #             path_template="tmp/configs/precursor_cluster_stats_config/{rule_id}.toml",
-    #         )
-    #     ),
-    # ),
-    # get_fragment_cluster_stats_config=dict(
-    #     expected_inputs=dict(),
-    #     expected_outputs=dict(
-    #         name="fragment_cluster_stats_config",
-    #         path_template="tmp/configs/fragment_cluster_stats_config/{rule_id}.toml",
-    #     ),
-    # ),
-    # get_matching_config=dict(
-    #     expected_inputs=dict(),
-    #     expected_outputs=dict(
-    #         matching_config=dict(
-    #             name="matching_config",
-    #             path_template="tmp/configs/matching_config/{rule_id}.toml",
-    #         )
-    #     ),
-    # ),
