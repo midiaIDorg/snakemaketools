@@ -25,6 +25,9 @@ class Node:
     def copy(self) -> Node:
         return copy.deepcopy(self)
 
+    def __iter__(self):
+        yield from self.__dict__.items()
+
 
 @dataclasses.dataclass
 class Wildcard:

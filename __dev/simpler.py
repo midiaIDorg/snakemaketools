@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import copy
 import dataclasses
+import json
 import pathlib
 import typing
 from abc import ABC, abstractmethod
@@ -15,16 +16,16 @@ from functools import partial
 from pprint import pprint
 from types import SimpleNamespace
 
-import toml
-from pony.orm import (Database, Optional, PrimaryKey, Required, Set, commit,
-                      composite_index, db_session, set_sql_debug)
-
 import duckdb
+import toml
+from mmapped_df import open_dataset_dct
+
 import midia_pipe_hull.pipelines.base
 import snakemaketools.models
 import snakemaketools.rules
 import tomllib
-from mmapped_df import open_dataset_dct
+from pony.orm import (Database, Optional, PrimaryKey, Required, Set, commit,
+                      composite_index, db_session, set_sql_debug)
 from snakemaketools.datastructures import DotDict
 from snakemaketools.db_config import db
 from snakemaketools.encodings import iter_brackets, partial_format
@@ -44,6 +45,7 @@ dataset = "G8027"
 calibration = "G8045" # | = None
 fasta = "Human_2024_02_16_UniProt_Taxon9606_Reviewed_20434entries_contaminant_tenzer"
 consolidated_config_path = "configs/consolidated/default.toml"
+# consolidated_config_path = "configs/consolidated/experimental_sagepy.toml"
 # db_path = ":memory:"
 db_path = "/home/matteo/Projects/midia/pipelines/devel/midia_pipe/base.sqlite"
 
@@ -89,35 +91,11 @@ nodes = midia_pipe_hull.pipelines.base.get_nodes(
     configs=configs,
     wildcards=wildcards
 )
-list(nodes)
 
 
-
-df = open_dataset_dct("/home/matteo/test.startrek", read_write=True)
-old_df = open_dataset_dct("/home/matteo/Projects/midia/pipelines/devel/midia_pipe/tmp/clusters/tims/29/clusters.startrek")
-
-source = "/home/matteo/Projects/midia/pipelines/devel/midia_pipe/tmp/clusters/tims/29/additional_cluster_stats.parquet"
-target = "/home/matteo/test2.parquet"
-
-conn = duckdb.connect()
-conn.execute("""
-COPY (
-    SELECT 
-    ClusterID - 1 AS ClusterID,
-    * EXCLUDE ClusterID,
-    FROM "{source}"
-) TO "{target}" (FORMAT PARQUET);
-""")
-df["ClusterID"][:] = df["ClusterID"]-1
+json.dumps({ node_name: dict(node) for node_name, node in nodes.items()})
 
 
-
-# x = Config[Node[nodes.tims_precursor_clusterer_config.db_node_id].config_id].get_config()
-# x.serialized
-# Config[Node[nodes.tims_precursor_clusterer_config.db_node_id].config_id].serialized_content
-
-# with open(f"configs/rules.json", "r") as f:
-#     rule_configs2 = json.load(f)
 
 # node_storage = SimplePonyNodeStorage(debug=True)
 # rules = DotDict()
@@ -136,118 +114,21 @@ df["ClusterID"][:] = df["ClusterID"]-1
 #         )
 
 
-nodes.precursor_clusters_hdf.location
-nodes.precursor_clustering_qc.location
-nodes.fragment_clusters_hdf.location
-nodes.fragment_clusters.location
-
-configs.precursor_tims_installation_config
-
-# def install_tims(version):
-#     # should this be executable or not?
-#     # or should it be only represented.
-# wait ,independent of that, simple snakemake rules should be first world citizens.
-
-# so how to represent a general rule?
-
-
-nodes.fragment_cluster_stats_config.location
-configs.tims_precursor_clusterer
-configs.tims_precursor_clusterer_config
-
-nodes.dataset_matches_calibration_assertion
-
-nodes.tims_precursor_clusterer
-Config[Storable[nodes.tims_precursor_clusterer._debug["db_node"]].config_id].get_config()
-
-Node.GET(location=nodes.tims_precursor_clusterer.location)
-
-C = node_storage.get_config(nodes.tims_precursor_clusterer.location)
-
-toml.loads(C)
-
-
-node_storage.get_config(nodes.tims_fragment_clusterer_config.location)
-nodes.dataset_analysis_tdf_bin_hash
-nodes.tims_precursor_clusterer_config
-nodes.tims_fragment_clusterer_config
-
 path_ids = {k: node.id for k, node in paths.items() if node != None}
 wishes = {wish: path_ids[wish] for wish in CONFIG["wishlist"]} 
-# TODO: figure out if it would be possible to directly use the new id of the given node.
-# should be possible: simply first instantiate the node and then give its id.
 
 
+class T:
+    def __init__(self):
+        self.data = {'a': 1, 'b': 2, 'c': 3}
+    
+    def __iter__(self):
+        return iter(self.data)  # Return an iterator over the keys
+    
+    def __getitem__(self, key):
+        return self.data[key]  # Return the value for the given key
 
+t = T()
+print(dict(t))
 
-# co to jest get_config?
-
-
-
-# who makes a config?
-# a rule makes a config!
-# a fucking snakemake rule that is asked for a fucking:
-# configs/{configuration_of_what}/id.{extension}
-# and asks the fucking DB for that fucking config!
-# and the Snakemake makes that fucking config.
-# And angels cry.
-# And Michał stares in amazement.
-
-# And what about the silly willy other inputs? like:
-# * datasets
-# * optional calibration datasets
-# * fastas
-# those can be stuck by the silly 
-
-# the pipeline can simply copy them to the id-based location / or soft link.
-
-
-# big question: if we have two ways of executing a Node, how do we call it?
-# That's like indpendent of the setup of ids. But should be encoded in the rules.
-# But should a rule decide upon the script used? 
-# Not a bad idea: we could simply encode the path to the executable as we did and that will match the right rule.
-
-# Another idea: we can put configs with wildcards: these could be filled up automatically.
-# It would be nice to have some assertions at some point.
-
-# but the idea of storing paths in the rules is not a bad one? but how could those be of importance? Because when Snakemake asks for an id it could also ask for its parents ids and paths.
-
-# input:
-#     parent_node.path.fill() for parent_node in node.origin
-
-
-# roots = DotDict(
-#     raw_data = Node.GETINSERT(origin={'dataset':'G8027'}, type="tdf.d"),
-#     precursor_clustering_config = Node.GETINSERT(origin={'hash':'adf23vs232'}, type="precursor_clustering_config"),
-#     fragment_clustering_config = Node.GETINSERT(origin={'hash':'fafgdfvsdf23'}, type="fragment_clustering_config"),
-#     config_baseline_removal = Node.GETINSERT(origin={'hash':'trhcfghr'}, type="baseline_removal_config"),
-#     precursor_cluster_stats_config = Node.GETINSERT(origin={'hash':'rgrfdzExcerf'}, type="precursor_cluster_stats_config"),
-#     fragment_cluster_stats_config = Node.GETINSERT(origin={'hash':'sfewfewf'}, type="fragment_cluster_stats_config"),
-#     matching_config = Node.GETINSERT(origin={'hash':'dagaddsafdsafsa'}, type="matching_config"),
-# )
-# graph = pipeline(**roots)
-# graph["rough_matches"].origin
-
-
-# likely: do the same as with choosing the clustering algo
-#   decide upon the pipeline paths construction.
-# register_fasta = dict(
-#     expected_inputs=dict(),
-#     expected_outputs=dict(
-#         # argument name
-#         fasta=dict(
-#             type="fasta",# argument type
-#             path="fastas/{rule_id}.fasta", # path template
-#         ),
-#         # likely this should be a soft link after all?
-#         # or we provide and override. Soft link for simplicity.
-#     ),
-#     meta=dict()
-# ),
-# register_raw_data = dict(
-#     expected_outputs=dict(
-#         folder_d=dict(type="raw_data", path="spectra/{rule_id}.d"),
-#         analysis_tdf=dict(type="sqlite", path="spectra/{rule_id}.d/analysis.tdf"),
-#         analysis_tdf_bin=dict(type="tdf_bin", path="spectra/{rule_id}.d/analysis.tdf_bin"),
-#     )
-# ),
+??dict
