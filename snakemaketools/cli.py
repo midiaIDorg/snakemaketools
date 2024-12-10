@@ -1,4 +1,5 @@
 from pathlib import Path
+from warnings import warn
 
 import click
 import snakemaketools
@@ -56,9 +57,9 @@ def snake_out_paths(
 
     To mock, pass in `db` equal to `:memory:`; otherwise, the provide `connection` will be used directly and contain paths.
     """
-    assert pipeline_definition in (
-        "base",
-    ), f"You are trying to use an unauthorized python script `pipeline_definition` that someone maliciously put in `midia_pipe_hull.pipelines.{pipeline_definition}`."
+    if not pipeline_definition in ("base",):
+        msg = f"You are trying to use an unauthorized python script `pipeline_definition` that someone maliciously put in `midia_pipe_hull.pipelines.{pipeline_definition}`."
+        warn(msg)
 
     with open(snakemake_config, "r") as file:
         snakemake_conf = yaml.safe_load(file)
