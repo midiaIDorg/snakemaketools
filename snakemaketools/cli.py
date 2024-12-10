@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from warnings import warn
 
@@ -57,6 +58,8 @@ def snake_out_paths(
 
     To mock, pass in `db` equal to `:memory:`; otherwise, the provide `connection` will be used directly and contain paths.
     """
+
+    # TODO: find a nicer way to say which pipelines are OK to choose from.
     if not pipeline_definition in ("base",):
         msg = f"You are trying to use an unauthorized python script `pipeline_definition` that someone maliciously put in `midia_pipe_hull.pipelines.{pipeline_definition}`."
         warn(msg)
