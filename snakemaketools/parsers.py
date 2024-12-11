@@ -7,7 +7,6 @@ from pprint import pformat
 from typing import Iterable
 
 import toml
-
 from snakemaketools.encodings import iter_brackets
 
 
@@ -104,10 +103,27 @@ class DictSerializer:
     dumps: typing.Callable[[dict], str]
 
 
+def dump_to_config_format(config: dict) -> str:
+    """Dump to .config format used by Bruker."""
+
+    def iter_config(config, prefix=""):
+        assert isinstance(
+            config, dict
+        ), f"Pass in some form of dict. Got `{type(config)}`"
+        for key, value in config.items():
+            key = key if prefix == "" else f"{prefix}.{key}"
+            if isinstance(value, dict):
+                yield from iter_config(value, prefix=key)
+            else:
+                yield f"{key}={value}"
+
+    return "\n".join(iter_config(config))
+
+
 serializers = {
     ".toml": DictSerializer(toml.loads, toml.dumps),
     ".json": DictSerializer(json.loads, json.dumps),
-    ".config": DictSerializer(dotConfig_loads, toml.dumps),
+    ".config": DictSerializer(dotConfig_loads, dump_to_config_format),
 }
 
 

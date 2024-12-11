@@ -20,3 +20,9 @@ class DotDict(OrderedDict, Generic[DotDictKey, DotDictValue]):
             del self[key]
         except KeyError:
             raise AttributeError(f"'DotDict' object has no attribute '{key}'")
+
+    @classmethod
+    def Recursive(cls, dct):
+        return cls(
+            {k: cls.Recursive(v) if isinstance(v, dict) else v for k, v in dct.items()}
+        )
