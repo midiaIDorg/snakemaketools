@@ -16,20 +16,23 @@ from functools import partial
 from pprint import pprint
 from types import SimpleNamespace
 
+import toml
+from pony.orm import (Database, Optional, PrimaryKey, Required, Set, commit,
+                      composite_index, db_session, set_sql_debug)
+
 import duckdb
 import midia_pipe_hull.pipelines.base
 import snakemaketools.models
 import snakemaketools.rules
-import toml
 import tomllib
 from mmapped_df import open_dataset_dct
-from pony.orm import (Database, Optional, PrimaryKey, Required, Set, commit,
-                      composite_index, db_session, set_sql_debug)
 from snakemaketools.datastructures import DotDict
 from snakemaketools.db_config import db
 from snakemaketools.encodings import iter_brackets, partial_format
 from snakemaketools.models import *
-from snakemaketools.parsers import dump_to_config_format, iter_configs
+from snakemaketools.parsers import (dump_to_config_format, iter_configs,
+                                    parse_config_file_and_optional_diff,
+                                    update_config)
 from snakemaketools.rules import Config, Node, Rule, Wildcard
 
 # TODO:
@@ -57,7 +60,7 @@ with open(consolidated_config_path, "r") as f:
 
 configs = DotDict()
 for name, config in consolidated_config.items():
-    if name not in ("wildcards", "wishlist"):
+    if name not in ("wildcards", "wishlist","parametrization_path"):
         configs[name] = snakemaketools.rules.Config.new(**config, rule_name=name)
 
 # somehow Wildcards are directly saved to DB....
@@ -87,10 +90,26 @@ nodes = midia_pipe_hull.pipelines.base.get_nodes(
 json.dumps({ node_name: dict(node) for node_name, node in nodes.items()})
 
 
-with open("configs/consolidated/experimental_config_parsing.toml", "r") as f:
+with open("configs/consolidated/default.toml", "r") as f:
     consolidated_config = DotDict.Recursive(toml.load(f))
 
-dump_to_config_format(consolidated_config.precursor_clusterer.config)
+diff = "G8029/G8046"
+diff_parametrization = consolidated_config["diff_parametrization"]
 
-isinstance(consolidated_config.precursor_clusterer.config, dict)
-consolidated_config.precursor_clusterer.config.items()
+
+
+config_and_optional_diff = "default"
+config_and_optional_diff = "default/G8029/G8046/2"
+filename, diff = parse_config_file_and_optional_diff(config_and_optional_diff)
+
+diff_parametrization = "wildcards.dataset/wildcards.calibration/precursor_clusterer.config.seed"
+
+
+# OK, now we need to read those in.
+config = DotDict.Recursive(copy.deepcopy(consolidated_config))
+config.wildcards
+config.precursor_clusterer.config.seed
+
+update_config(config, diff, diff_parametrization)
+config.wildcards
+config.precursor_clusterer.config.seed

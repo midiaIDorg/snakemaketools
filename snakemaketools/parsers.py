@@ -7,6 +7,7 @@ from pprint import pformat
 from typing import Iterable
 
 import toml
+
 from snakemaketools.encodings import iter_brackets
 
 
@@ -129,3 +130,35 @@ serializers = {
 
 def get_wildcards(text: str) -> set[str]:
     return set(iter_brackets(text, "{", "}"))
+
+
+def parse_config_file_and_optional_diff(config_and_optional_diff):
+    filename, *rest = config_and_optional_diff.split("/", 1)
+    if len(rest) == 0:
+        rest = ""
+    elif len(rest) == 1:
+        rest = rest.pop()
+    else:
+        raise ValueError(f"`rest` still has some entries: {rest}")
+    return filename, rest
+
+
+def update_config(config, diff, diff_parametrization) -> None:
+    """Update a config in-place provided a diff and its parametrization."""
+    keys = diff_parametrization.split("/")
+    values = diff.split("/")
+    assert len(keys) == len(
+        values
+    ), f"\n\nERROR!!!\n\nInconsitency between your config's\ndiff_parametrization=`{diff_parametrization}`,\nand the actually passed in values, `{diff}`.\nWe would expect to pass in {len(keys)} values separated by `/`; instead, we got `{len(values)}`.\n\n\n."
+
+    for keys, value in zip(keys, values):
+        try:
+            _keys = keys.split(".")
+            last_key = _keys.pop()
+            dct = config
+            for key in _keys:
+                dct = dct[key]
+            dct[last_key] = type(dct[last_key])(value)
+        except KeyError as e:
+            print(f"\nERROR!!!\nPath `{keys}` does not occur in the config.\n\n")
+            raise KeyError(e)
