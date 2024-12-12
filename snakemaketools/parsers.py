@@ -3,8 +3,10 @@ import json
 import pathlib
 import typing
 from collections import defaultdict, deque
+from pathlib import Path
 from pprint import pformat
 from typing import Iterable
+from warnings import warn
 
 import toml
 
@@ -132,7 +134,8 @@ def get_wildcards(text: str) -> set[str]:
     return set(iter_brackets(text, "{", "}"))
 
 
-def parse_config_file_and_optional_diff(config_and_optional_diff):
+def parse_config_file_and_optional_diff(config_and_optional_diff: str):
+    config_and_optional_diff = str(config_and_optional_diff)
     filename, *rest = config_and_optional_diff.split("/", 1)
     if len(rest) == 0:
         rest = ""

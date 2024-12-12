@@ -16,11 +16,10 @@ dependencies = [
     "pony",
     "click",
     "toml",
-    "pyyaml",
 ]
 
 [project.scripts]
-snake_out_paths = "snakemaketools.cli:snake_out_paths"
+# snake_out_paths = "snakemaketools.cli:snake_out_paths"
 
 [project.urls]
 homepage="https://github.com/midiaIDorg/snakemaketools.git"
