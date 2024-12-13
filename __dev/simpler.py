@@ -25,4 +25,15 @@ longsnake = LongSnakeConfiguration(
     smk_file_paths=Path("workflow").glob("**/*.smk"),
 )
 longsnake.wildcards
+longsnake.rules
 longsnake.nodes
+
+# this is stupidly repeated
+
+nodes = longsnake.nodes
+
+nodes.refined_matches_stats
+nodes.first_gen_search_fragments
+nodes.remaining_first_gen_edges_counts
+nodes.refined_matches_qc
+nodes.refined_nodes_quality_checks
