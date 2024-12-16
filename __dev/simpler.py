@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pony.orm
 import toml
+
 from snakemaketools.datastructures import DotDict
 from snakemaketools.db_config import db
 from snakemaketools.import_ops import dynamically_import_foo
@@ -14,7 +15,9 @@ with open(consolidated_config_path, "r") as f:
     consolidated_config = DotDict.Recursive(toml.load(f))
 
 pony.orm.set_sql_debug()
-db_path = "/home/matteo/Projects/midia/pipelines/devel/midia_pipe/base.sqlite"
+db_path = "base.sqlite"
+db_path = "/home/matteo/MIDIA/midia_experiments/matteo_devel/pipelines/devel/midia_pipe/base.sqlite"
+
 db.bind(provider='sqlite', filename=db_path, create_db=True)
 db.generate_mapping(create_tables=True)
 
