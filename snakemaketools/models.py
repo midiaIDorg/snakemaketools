@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+from pathlib import Path
 
 from pony.orm import Optional, PrimaryKey, Required, commit, db_session
 
@@ -138,6 +139,13 @@ class Node(Storable):
 @dataclasses.dataclass
 class SimplePonyNodeStorage(snakemaketools.rules.NodeStorage):
     """Implementation of a general NodeStorage Protocol using Pony ORM."""
+
+    def __init__(self):
+        # Representing `none` in the DB.
+        assert Path(
+            "none"
+        ).exists(), "Missing file `none` in the working directory. Please restore it."
+        Node.GETINSERT(location="none")
 
     def get_outputs(
         self,

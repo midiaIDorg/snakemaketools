@@ -2,24 +2,18 @@
 %autoreload 2
 from pathlib import Path
 
-import pony.orm
 import toml
 
 from snakemaketools.datastructures import DotDict
-from snakemaketools.db_config import db
+from snakemaketools.db_config import setup_db
 from snakemaketools.import_ops import dynamically_import_foo
 from snakemaketools.longsnake import LongSnakeConfiguration
+
+setup_db(verbose=True)
 
 consolidated_config_path = "configs/consolidated/default.toml"
 with open(consolidated_config_path, "r") as f:
     consolidated_config = DotDict.Recursive(toml.load(f))
-
-pony.orm.set_sql_debug()
-db_path = "base.sqlite"
-db_path = "/home/matteo/MIDIA/midia_experiments/matteo_devel/pipelines/devel/midia_pipe/base.sqlite"
-
-db.bind(provider='sqlite', filename=db_path, create_db=True)
-db.generate_mapping(create_tables=True)
 
 get_nodes_path = "midia_pipe_hull.pipelines.base::get_nodes"
 longsnake = LongSnakeConfiguration(
@@ -27,9 +21,16 @@ longsnake = LongSnakeConfiguration(
     get_nodes=dynamically_import_foo(get_nodes_path),
     smk_file_paths=Path("workflow").glob("**/*.smk"),
 )
-longsnake.wildcards
-longsnake.rules
+diff = "G8027/None"
+longsnake.update_consolidated_config(diff)
+
+rules = longsnake.rules
+configs = longsnake.configs
+wildcards = longsnake.wildcards
+
+
 longsnake.nodes
+
 
 # this is stupidly repeated
 
