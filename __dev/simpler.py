@@ -33,20 +33,38 @@ from snakemaketools.longsnake import LongSnakeConfiguration
 
 pd.set_option('display.max_columns', None)
 
-setup_db(verbose=True)
+def VennIt(A, B):
+    sA, sB = map(set, (A, B) )
+    return list(map(list, (sA & sB, sA - sB, sB - sA)))
+
+def deciles(xx):
+    return xx.quantile(np.linspace(0,1,11))
+
+RUN = partial(run, shell=True, check=True)
+
+def exists(path: str):
+    return Path(path).exists()
+
+
+
 
 consolidated_config_path = "configs/consolidated/debug.toml"
+get_nodes_path = "midia_pipe_hull.pipelines.base::get_nodes"
+diff = "G8027/None"
+# diff = "G8602/None"
+
+
+
+setup_db(verbose=True)
+
 with open(consolidated_config_path, "r") as f:
     consolidated_config = DotDict.Recursive(toml.load(f))
 
-get_nodes_path = "midia_pipe_hull.pipelines.base::get_nodes"
 longsnake = LongSnakeConfiguration(
     consolidated_config=consolidated_config,
     get_nodes=dynamically_import_foo(get_nodes_path),
     smk_file_paths=Path("workflow").glob("**/*.smk"),
 )
-diff = "G8027/None"
-# diff = "G8602/None"
 longsnake.update_consolidated_config(diff)
 
 rules = longsnake.rules
@@ -54,15 +72,6 @@ configs = longsnake.configs
 wildcards = longsnake.wildcards
 nodes = longsnake.nodes
 
-def VennIt(A, B):
-    sA, sB = map(set, (A, B) )
-    return list(map(list, (sA & sB, sA - sB, sB - sA)))
-
-
-def deciles(xx):
-    return xx.quantile(np.linspace(0,1,11))
-
-RUN = partial(run, shell=True, check=True)
 
 # perhaps most sense to update the DB ot a new path?
 # soft link it?
@@ -77,11 +86,10 @@ RUN = partial(run, shell=True, check=True)
 # we export paths to other files!!!
 # read_df(nodes.first_gen_search_precursors.location)
 
-old_pipeline_folder = Path("/home/matteo/Projects/midia/docker_images/midia_docker/dockerhub")
+old_pipeline_folder = Path("/home/matteo/Projects/midia/midia_experiments/pipelines/dockerhubregression")
 with open(old_pipeline_folder/"partial/paths.json") as f:
     old_pipeline_partials = DotDict(json.load(f))
 
-print("Checking what is missing.")
 for name, path in old_pipeline_partials.items():
     old_pipeline_partials[name] = old_pipeline_folder / path
     if "{" in path:
@@ -90,6 +98,9 @@ for name, path in old_pipeline_partials.items():
         if not old_pipeline_partials[name].exists():
             print(f"Missing {name} at \n{old_pipeline_partials[name]}")
 
+
+RUN(f"snakemake {nodes.precursor_clusters_hdf.location}")
+exists(nodes.precursor_clusters_hdf.location)
 
 replace_filesystem_entry(nodes.precursor_clusters_hdf, old_pipeline_partials.MS1_clusters_hdf)
 RUN(f"snakemake {nodes.precursor_cluster_stats.location}")
@@ -105,12 +116,17 @@ abs(old_prec_stats[commonCols] - new_prec_stats[commonCols]).max()
 deciles(old_prec_stats.tof_wmean - new_prec_stats.tof_wmean)
 # Problem solved.
 
+RUN(f"snakemake {nodes.fragment_clusters_hdf.location}")
 replace_filesystem_entry(nodes.fragment_clusters_hdf, old_pipeline_partials.MS2_clusters_hdf)
 RUN(f"snakemake {nodes.fragment_cluster_stats.location}")
 
+# add methods like prev and next:
+
 old_pipeline_partials.MS2_clusters_hdf.exists()
 old_pipeline_partials.MS2_cluster_stats.exists()
+
 old_frag_stats = read_df(old_pipeline_partials.MS2_cluster_stats)
+
 new_frag_stats = read_df(nodes.fragment_cluster_stats.location)
 commonCols, *_ = VennIt(old_frag_stats.columns, new_frag_stats.columns)
 abs(old_frag_stats[commonCols] - new_frag_stats[commonCols]).max()
@@ -145,24 +161,21 @@ quadrupole_positions = dia_common.quadrupole.get_quadrupole_positions(
 with open(nodes.precursor_prediction_config.location, "rb") as config_file_handler:
     config = tomllib.load(config_file_handler)
 
-
 # fragment_clusters_df = read_df()
-
-
 # clusters = IndexedReader(nodes.fragment_clusters.location, "ClusterID")
 
-clusters_df = read_df("/tmp/frag_clust.startrek", read_write=True)
-clusters_df.scan = clusters_df.scan - 1
+# clusters_df = read_df("/tmp/frag_clust.startrek", read_write=True)
+# clusters_df.scan = clusters_df.scan - 1
 # clusters_df.append_column(new_scan, clusters_df.scan - 1)
 
-clusters_df.scan.min()
+# clusters_df.scan.min()
 # clusters_df.midia_step = clusters_df.midia_step - 1
 # del clusters_df
 
-clusters = IndexedReader("/tmp/frag_clust.startrek", "ClusterID")
+# clusters = IndexedReader("/tmp/frag_clust.startrek", "ClusterID")
 # clusters.dataset["scan"] = clusters.dataset["original_scan"]-1
-clusters_df = pd.DataFrame(clusters.dataset, copy=False)
-clusters_df
+# clusters_df = pd.DataFrame(clusters.dataset, copy=False)
+# clusters_df
 
 
 analysis_tdf = nodes.dataset_analysis_tdf.location
@@ -178,31 +191,7 @@ npp = dia_common.precursor_prediction.PrecursorPredictor(
     # normalization = "probabilistic",
     rounding_digits = 1
 )
-
-self = npp
-for midia_step, scan in zip(*self.midia_step_scan_counts.nonzero()):
-    print(self.quadrupole_positions.get_transmission_curve(
-        midia_step, scan-1
-    ))
-
-for midia_step, scan in zip(*self.midia_step_scan_counts.nonzero()):
-    start = self.step_scan_to_inflection_point[midia_step, scan]
-    local_grid = self.mz_grid[
-        start : start + self.tensor_mzbins_cnt
-    ]  # border effect
-    assert len(local_grid) == self.tensor_mzbins_cnt
-    self.transmissions[
-        midia_step, scan, :
-    ] = self.quadrupole_positions.get_transmission_curve(
-        midia_step, scan
-    ).value(
-        local_grid
-    )
-
 new_predictions = npp.predict_precursors_mzs()
-
-
-
 
 
 deciles(old_frag_stats.precursor_mz_pred_fastmist - new_predictions.flatten())

@@ -22,6 +22,9 @@ class Node:
     db_node_id: int | None = None
     type: typing.Type | str | None = None  # like for future
 
+    def __post_init__(self):
+        self.parents = {}
+
     def copy(self) -> Node:
         return copy.deepcopy(self)
 
@@ -176,7 +179,7 @@ class Rule:
         inputs: dict[str, Node],
         wildcards: dict[str, Wildcard],
         config: Config | None,
-    ) -> tuple[Node, ...] | Node:
+    ) -> tuple[Node, ...]:
         if self.config_setter:
             assert config is not None, "Config setter did not receive any Config."
             assert isinstance(  # TODO: use typeguard module?
@@ -210,17 +213,12 @@ class Rule:
                     wildcard_name in wildcards
                 ), f"Missing expected wildcard `{wildcard_name}`."
 
-        outputs = self.node_storage.get_outputs(
+        return self.node_storage.get_outputs(
             inputs=inputs,
             expected_outputs=self.expected_outputs,
             config=config,
             wildcards=wildcards,
         )
-
-        if len(outputs) == 1:
-            return outputs[0]
-
-        return outputs
 
     def __call__(self, **inputs: Node | Wildcard) -> tuple[Node, ...] | Node:
         nodes: dict[str, Node] = {}
@@ -241,7 +239,15 @@ class Rule:
                 raise ValueError(
                     f"Rule `{self.name}` received an invalid type: {type(value).__name__}."
                 )
-        return self.run(inputs=nodes, wildcards=wildcards, config=config)
+        outputs = self.run(inputs=nodes, wildcards=wildcards, config=config)
+
+        for output in outputs:
+            output.parents = inputs
+
+        if len(outputs) == 1:
+            return outputs[0]
+
+        return outputs
 
 
 @dataclasses.dataclass
