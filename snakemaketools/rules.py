@@ -23,13 +23,15 @@ class Node:
     type: typing.Type | str | None = None  # like for future
 
     def __post_init__(self):
-        self.parents = {} # this does not print it out ;)
+        self.parents = {}  # this does not print it out ;)
 
     def copy(self) -> Node:
         return copy.deepcopy(self)
 
     def __iter__(self):
-        yield from self.__dict__.items()
+        for key, value in self.__dict__.items():
+            if key != "parents":
+                yield key, value
 
 
 @dataclasses.dataclass
