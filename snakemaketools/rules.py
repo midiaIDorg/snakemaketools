@@ -23,7 +23,7 @@ class Node:
     type: typing.Type | str | None = None  # like for future
 
     def __post_init__(self):
-        self.parents = {}
+        self.parents = {} # this does not print it out ;)
 
     def copy(self) -> Node:
         return copy.deepcopy(self)
@@ -242,7 +242,7 @@ class Rule:
         outputs = self.run(inputs=nodes, wildcards=wildcards, config=config)
 
         for output in outputs:
-            output.parents = inputs
+            output.parents[self.name] = DotDict(inputs)
 
         if len(outputs) == 1:
             return outputs[0]
