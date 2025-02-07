@@ -104,6 +104,12 @@ class DictSerializer:
     loads: typing.Callable[[str], dict]
     dumps: typing.Callable[[dict], str]
 
+    def load(self, file) -> dict:
+        return self.loads(file.read())
+
+    def dump(self, content, file) -> None:
+        file.write(self.dumps(content))
+
 
 def dump_to_config_format(config: dict) -> str:
     """Dump to .config format used by Bruker."""
@@ -122,10 +128,14 @@ def dump_to_config_format(config: dict) -> str:
     return "\n".join(iter_config(config))
 
 
+toml_serializer = DictSerializer(toml.loads, toml.dumps)
+json_serializer = DictSerializer(json.loads, json.dumps)
+config_serializer = DictSerializer(dotConfig_loads, dump_to_config_format)
+
 serializers = {
-    ".toml": DictSerializer(toml.loads, toml.dumps),
-    ".json": DictSerializer(json.loads, json.dumps),
-    ".config": DictSerializer(dotConfig_loads, dump_to_config_format),
+    ".toml": toml_serializer,
+    ".json": json_serializer,
+    ".config": config_serializer,
 }
 
 

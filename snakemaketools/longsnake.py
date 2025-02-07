@@ -10,9 +10,13 @@ from snakemaketools.datastructures import DotDict
 from snakemaketools.db_config import db as pony_db
 from snakemaketools.models import SimplePonyNodeStorage
 from snakemaketools.rules import NodeStorage
+from pprint import pprint
 
 CONFDICT = dict[str, typing.Any]
 CONFDOTDICT = DotDict[str, typing.Any]
+
+
+_default_smk_file_paths = tuple(Path("workflow").glob("**/*.smk"))
 
 
 @dataclass
@@ -26,7 +30,7 @@ class LongSnakeConfiguration:
     consolidated_config: CONFDICT
     get_nodes: typing.Callable[[CONFDICT, CONFDICT, CONFDICT], CONFDOTDICT]
     node_storage: NodeStorage = field(default_factory=SimplePonyNodeStorage)
-    smk_file_paths: typing.Iterable = Path("workflow").glob("**/*.smk")
+    smk_file_paths: tuple = _default_smk_file_paths
     input_locations: DotDict = field(default_factory=DotDict)
     raw_rule_configs: DotDict = field(default_factory=DotDict)
     rules: DotDict = field(default_factory=DotDict)
@@ -52,6 +56,7 @@ class LongSnakeConfiguration:
             values
         ), f"\n\nERROR!!!\n\nInconsitency between your config's\ndiff_parametrization=`{diff_parametrization}`,\nand the actually passed in values, `{diff}`.\nWe would expect to pass in {len(keys)} values separated by `/`; instead, we got `{len(values)}`.\n\n\n."
 
+        # TODO: if last config entry does not exist, create it??
         for keys, value in zip(keys, values):
             try:
                 _keys = keys.split(".")
