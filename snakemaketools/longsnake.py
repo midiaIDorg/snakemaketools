@@ -2,15 +2,18 @@ from __future__ import annotations
 
 import functools
 import typing
-from dataclasses import dataclass, field
+
+from dataclasses import dataclass
+from dataclasses import field
 from pathlib import Path
 
 import snakemaketools
+
+from pprint import pprint
 from snakemaketools.datastructures import DotDict
 from snakemaketools.db_config import db as pony_db
 from snakemaketools.models import SimplePonyNodeStorage
 from snakemaketools.rules import NodeStorage
-from pprint import pprint
 
 CONFDICT = dict[str, typing.Any]
 CONFDOTDICT = DotDict[str, typing.Any]

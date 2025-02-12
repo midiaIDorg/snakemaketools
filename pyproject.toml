@@ -19,7 +19,7 @@ dependencies = [
 ]
 
 [project.scripts]
-# snake_out_paths = "snakemaketools.cli:snake_out_paths"
+get_pipeline_nodes = "snakemaketools.cli.get_pipeline_nodes:get_pipeline_nodes"
 
 [project.urls]
 homepage="https://github.com/midiaIDorg/snakemaketools.git"
