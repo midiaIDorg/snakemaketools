@@ -16,6 +16,7 @@ dependencies = [
     "pony",
     "click",
     "toml",
+    "pandas_ops",
 ]
 
 [project.scripts]
