@@ -10,10 +10,22 @@ def get_local_ip():
         return s.getsockname()[0]
 
 
+def get_pipeline_location():
+    return str(Path.cwd())
+
+
+def get_user():
+    return os.getlogin()
+
+
+def get_server():
+    return socket.gethostname()
+
+
 def whoami():
     return dict(
         ip_address=get_local_ip(),
-        user_name=os.getlogin(),
-        server_name=socket.gethostname(),
-        pipeline_location=str(Path.cwd()),
+        user_name=get_user(),
+        server_name=get_server(),
+        pipeline_location=get_pipeline_location(),
     )

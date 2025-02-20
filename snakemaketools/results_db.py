@@ -13,7 +13,10 @@ from pony.orm import PrimaryKey
 from pony.orm import Required
 from pony.orm import db_session
 
-from snakemaketools.network import whoami
+from snakemaketools.network import get_local_ip
+from snakemaketools.network import get_pipeline_location
+from snakemaketools.network import get_server
+from snakemaketools.network import get_user
 
 
 results_db = Database()
@@ -27,7 +30,10 @@ class Result(results_db.Entity):
         precision=0,
         default=lambda: datetime.now(),
     )  # Date of the arrival of message.
-    whoami = Optional(Json, default=whoami)
+    ip_address = Optional(str, default=get_local_ip)
+    user_name = Optional(str, default=get_user)
+    server_name = Optional(str, default=get_server)
+    cwd = Optional(str, default=get_pipeline_location)
     reproducibility = Optional(Json)
     command = Optional(str, default="")
     consolidated_config = Optional(Json, default="")
