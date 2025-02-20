@@ -55,9 +55,10 @@ If you want to put more stats in the DB automatically, make sure they are in eit
 ```toml
 [wishlist] # a list of all targets is available in configs/wishlist.toml
 
+first_gen_fdr_filtered_search_stats = "stats/first_gen_fdr_filtered_search_stats.json"
 fasta_stats = "stats/{fasta}.json"
 ```
-Above, `fasta_stats` will be saved in the location you want.
+Above, `first_gen_fdr_filtered_search_stats` and `fasta_stats` will be saved in the location you want. The `{fasta}` in `"stats/{fasta}.json"` will be replaced directly by entry `fasta` from that configs `[wildcards]`, or by that entry once the the user provided value is parsed out when he is using the `diff_parametrization` mechanism actively.
 
 
 To empty a DB:
