@@ -34,7 +34,8 @@ class Result(results_db.Entity):
     user_name = Optional(str, default=get_user)
     server_name = Optional(str, default=get_server)
     cwd = Optional(str, default=get_pipeline_location)
-    reproducibility = Optional(Json)
+    config_initial = Optional(Json)
+    config_freezed = Optional(Json)
     command = Optional(str, default="")
     consolidated_config = Optional(Json, default="")
     results = Required(Json)
@@ -60,12 +61,16 @@ def open_result(path: str | Path) -> list | dict:
 @db_session
 def send_results(
     config_initial_path: str | Path,
+    config_freezed_path: str | Path,
     consolidated_config_path: str | Path,
     command: str,
     result_paths: list[str | Path],
 ) -> Result:
     with open(config_initial_path, "rb") as file:
         config_initial = tomllib.load(file)
+
+    with open(config_freezed_path, "rb") as file:
+        config_freezed = tomllib.load(file)
 
     with open(consolidated_config_path, "rb") as file:
         consolidated_config = tomllib.load(file)
@@ -74,7 +79,8 @@ def send_results(
 
     return Result(
         command=command,
-        reproducibility=config_initial,
+        config_initial=config_initial,
+        config_freezed=config_freezed,
         consolidated_config=consolidated_config,
         results=results,
     )
