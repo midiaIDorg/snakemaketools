@@ -66,9 +66,11 @@ def open_result(path: str | Path) -> list | dict:
                 return file.read()
         case ".parquet" | ".startrek":
             from pandas_ops.io import read_df
+
             return json.dumps(read_df(path).to_dict(orient="records"))
         case other:
-    
+            raise NotImplementedError(f"Have no idea how to open `{path}`.")
+
 
 @db_session
 def send_results(
