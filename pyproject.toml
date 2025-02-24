@@ -17,6 +17,7 @@ dependencies = [
     "click",
     "toml",
     "pandas_ops",
+    "cryptography", # mysql db connections
 ]
 
 [project.scripts]
