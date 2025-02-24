@@ -42,35 +42,35 @@ class Result(results_db.Entity):
     results = Required(LongStr)
 
 
-# def open_result(path: str | Path) -> list | dict:
-#     path = Path(path)
-#     match path.suffix:
-#         case ".json":
-#             with open(path, "r") as file:
-#                 return json.load(file)
-#         case ".toml":
-#             with open(path, "rb") as file:
-#                 return tomllib.load(file)
-#         case ".csv" | ".parquet" | ".startrek" | ".tsv":
-#             from pandas_ops.io import read_df
-
-#             return read_df(path).to_dict(orient="records")
-#         case other:
-#             raise NotImplementedError(f"Have no idea how to open `{path}`.")
-
-
 def open_result(path: str | Path) -> list | dict:
     path = Path(path)
     match path.suffix:
-        case ".json" | ".csv" | ".tsv" | ".toml":
+        case ".json":
             with open(path, "r") as file:
-                return file.read()
-        case ".parquet" | ".startrek":
+                return json.load(file)
+        case ".toml":
+            with open(path, "rb") as file:
+                return tomllib.load(file)
+        case ".csv" | ".parquet" | ".startrek" | ".tsv":
             from pandas_ops.io import read_df
 
-            return json.dumps(read_df(path).to_dict(orient="records"))
+            return read_df(path).to_dict(orient="records")
         case other:
             raise NotImplementedError(f"Have no idea how to open `{path}`.")
+
+
+# def open_result(path: str | Path) -> list | dict:
+#     path = Path(path)
+#     match path.suffix:
+#         case ".json" | ".csv" | ".tsv" | ".toml":
+#             with open(path, "r") as file:
+#                 return file.read()
+#         case ".parquet" | ".startrek":
+#             from pandas_ops.io import read_df
+
+#             return json.dumps(read_df(path).to_dict(orient="records"))
+#         case other:
+#             raise NotImplementedError(f"Have no idea how to open `{path}`.")
 
 
 @db_session
@@ -93,7 +93,7 @@ def send_results(
         # consolidated_config = tomllib.load(file)
         consolidated_config = file.read()
 
-    results = {str(path): open_result(path) for path in result_paths}
+    results = json.dumps({str(path): open_result(path) for path in result_paths})
 
     return Result(
         command=command,
