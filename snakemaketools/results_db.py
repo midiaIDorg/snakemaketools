@@ -33,12 +33,12 @@ class Result(results_db.Entity):
     ip_address = Optional(str, default=get_local_ip)
     user_name = Optional(str, default=get_user)
     server_name = Optional(str, default=get_server)
-    cwd = Optional(str, default=get_pipeline_location)
-    config_initial = Optional(str)
-    config_freezed = Optional(str)
-    command = Optional(str, default="")
-    consolidated_config = Optional(str, default="")
-    results = Required(str)
+    cwd = Optional(LongStr, default=get_pipeline_location)
+    config_initial = Optional(LongStr)
+    config_freezed = Optional(LongStr)
+    command = Optional(LongStr, default="")
+    consolidated_config = Optional(LongStr, default="")
+    results = Required(LongStr)
 
 
 # def open_result(path: str | Path) -> list | dict:
