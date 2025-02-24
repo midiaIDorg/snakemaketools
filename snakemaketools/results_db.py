@@ -80,15 +80,15 @@ def send_results(
     command: str,
     result_paths: list[str | Path],
 ) -> Result:
-    with open(config_initial_path, "rb") as file:
+    with open(config_initial_path, "r") as file:
         # config_initial = tomllib.load(file)
         config_initial = file.read()
 
-    with open(config_freezed_path, "rb") as file:
+    with open(config_freezed_path, "r") as file:
         # config_freezed = tomllib.load(file)
         config_freezed = file.read()
 
-    with open(consolidated_config_path, "rb") as file:
+    with open(consolidated_config_path, "r") as file:
         # consolidated_config = tomllib.load(file)
         consolidated_config = file.read()
 
