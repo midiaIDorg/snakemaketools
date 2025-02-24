@@ -8,6 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from pony.orm import Database
 from pony.orm import Json
+from pony.orm import LongStr
 from pony.orm import Optional
 from pony.orm import PrimaryKey
 from pony.orm import Required
