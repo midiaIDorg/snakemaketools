@@ -34,29 +34,41 @@ class Result(results_db.Entity):
     user_name = Optional(str, default=get_user)
     server_name = Optional(str, default=get_server)
     cwd = Optional(str, default=get_pipeline_location)
-    config_initial = Optional(Json)
-    config_freezed = Optional(Json)
+    config_initial = Optional(str)
+    config_freezed = Optional(str)
     command = Optional(str, default="")
-    consolidated_config = Optional(Json, default="")
-    results = Required(Json)
+    consolidated_config = Optional(str, default="")
+    results = Required(str)
 
 
-def open_result(path: str | Path) -> list | dict:
+# def open_result(path: str | Path) -> list | dict:
+#     path = Path(path)
+#     match path.suffix:
+#         case ".json":
+#             with open(path, "r") as file:
+#                 return json.load(file)
+#         case ".toml":
+#             with open(path, "rb") as file:
+#                 return tomllib.load(file)
+#         case ".csv" | ".parquet" | ".startrek" | ".tsv":
+#             from pandas_ops.io import read_df
+
+#             return read_df(path).to_dict(orient="records")
+#         case other:
+#             raise NotImplementedError(f"Have no idea how to open `{path}`.")
+
+
+open_result(path: str | Path) -> list | dict:
     path = Path(path)
     match path.suffix:
-        case ".json":
+        case ".json" | ".csv" | ".tsv" | ".toml":
             with open(path, "r") as file:
-                return json.load(file)
-        case ".toml":
-            with open(path, "rb") as file:
-                return tomllib.load(file)
-        case ".csv" | ".parquet" | ".startrek" | ".tsv":
+                return file.read()
+        case ".parquet" | ".startrek":
             from pandas_ops.io import read_df
-
-            return read_df(path).to_dict(orient="records")
+            return json.dumps(read_df(path).to_dict(orient="records"))
         case other:
-            raise NotImplementedError(f"Have no idea how to open `{path}`.")
-
+    
 
 @db_session
 def send_results(
@@ -67,13 +79,16 @@ def send_results(
     result_paths: list[str | Path],
 ) -> Result:
     with open(config_initial_path, "rb") as file:
-        config_initial = tomllib.load(file)
+        # config_initial = tomllib.load(file)
+        config_initial = file.read()
 
     with open(config_freezed_path, "rb") as file:
-        config_freezed = tomllib.load(file)
+        # config_freezed = tomllib.load(file)
+        config_freezed = file.read()
 
     with open(consolidated_config_path, "rb") as file:
-        consolidated_config = tomllib.load(file)
+        # consolidated_config = tomllib.load(file)
+        consolidated_config = file.read()
 
     results = {str(path): open_result(path) for path in result_paths}
 
