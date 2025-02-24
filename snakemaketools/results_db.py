@@ -58,7 +58,7 @@ class Result(results_db.Entity):
 #             raise NotImplementedError(f"Have no idea how to open `{path}`.")
 
 
-open_result(path: str | Path) -> list | dict:
+def open_result(path: str | Path) -> list | dict:
     path = Path(path)
     match path.suffix:
         case ".json" | ".csv" | ".tsv" | ".toml":
