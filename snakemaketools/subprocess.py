@@ -1,5 +1,7 @@
 import subprocess
 
+from pprint import pprint
+
 
 def run(cmd, *args, capture_output=True, check=True, verbose=True, **kwargs):
     if verbose:
