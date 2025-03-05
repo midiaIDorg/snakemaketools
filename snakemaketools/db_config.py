@@ -12,7 +12,7 @@ db = Database()
 
 def setup_db(
     provider: str = "sqlite",
-    filename: str = "base.sqlite",
+    filename: str | Path = "base.sqlite",
     create_db: bool = True,
     create_tables: bool = True,
     verbose: bool = False,
@@ -22,10 +22,10 @@ def setup_db(
     if verbose:
         set_sql_debug()
 
-    if filename == "base.sqlite":
-        filename = str(Path.cwd() / "base.sqlite")
+    filename = Path(filename)
+    filename = filename if filename.is_absolute() else Path.cwd() / filename
 
-    db.bind(provider=provider, filename=filename, create_db=create_db)
+    db.bind(provider=provider, filename=str(filename), create_db=create_db)
     db.generate_mapping(create_tables=create_tables)
 
 
