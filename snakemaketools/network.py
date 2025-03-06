@@ -1,6 +1,8 @@
 import os
 import socket
 
+from getpass import getuser as get_user
+
 from pathlib import Path
 
 
@@ -12,10 +14,6 @@ def get_local_ip():
 
 def get_pipeline_location():
     return str(Path.cwd())
-
-
-def get_user():
-    return os.getlogin()
 
 
 def get_server():
