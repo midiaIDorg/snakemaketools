@@ -22,6 +22,8 @@ dependencies = [
 
 [project.scripts]
 get_pipeline_nodes = "snakemaketools.cli.get_pipeline_nodes:get_pipeline_nodes"
+get_node_lineage = "snakemaketools.cli.get_node_lineage:get_node_lineage"
+
 
 [project.urls]
 homepage="https://github.com/midiaIDorg/snakemaketools.git"

@@ -12,12 +12,12 @@ db = Database()
 
 def setup_db(
     provider: str = "sqlite",
-    filename: str | Path = "base.sqlite",
+    filename: str | Path = "dbs/base.sqlite",
     create_db: bool = True,
     create_tables: bool = True,
     verbose: bool = False,
     db: Database = db,
-) -> None:
+) -> Database:
     """A wrapper to setup the DB."""
     if verbose:
         set_sql_debug()
@@ -27,6 +27,8 @@ def setup_db(
 
     db.bind(provider=provider, filename=str(filename), create_db=create_db)
     db.generate_mapping(create_tables=create_tables)
+
+    return db
 
 
 def setup_db_from_config(

@@ -7,12 +7,20 @@ from __future__ import annotations
 
 import dataclasses
 import json
+
+from collections import defaultdict
 from pathlib import Path
 
-from pony.orm import Optional, PrimaryKey, Required, commit, db_session
+
+from pony.orm import Optional
+from pony.orm import PrimaryKey
+from pony.orm import Required
+from pony.orm import commit
+from pony.orm import db_session
 
 import snakemaketools.db_config
 import snakemaketools.rules
+
 from snakemaketools.datastructures import DotDict
 
 
@@ -134,6 +142,19 @@ class Node(Storable):
             )
             commit()
         return node.id
+
+    @classmethod
+    @db_session
+    def GET_LINEAGE(cls, location: str) -> defaultdict:
+        paths_to_visit = [location]
+        results = defaultdict(list)
+        while paths_to_visit:
+            node = Node[Node.GET(location=paths_to_visit.pop())]
+            for node_name, node_path in node.get_parent_nodes().items():
+                if node_path not in results:
+                    paths_to_visit.append(node_path)
+                results[node_path].append(node_name)
+        return results
 
 
 @dataclasses.dataclass
