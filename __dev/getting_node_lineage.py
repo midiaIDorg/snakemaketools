@@ -10,5 +10,5 @@ db = setup_db()
 # node_path = "tmp/configs/mgf_config/70.toml"
 node_path = "tmp/mgfs/124/midia.mgf"
 
-Node.GET_LINEAGE(node_path)
+set(Node.GET_LINEAGE(node_path))
 
