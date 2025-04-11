@@ -68,9 +68,13 @@ class LongSnakeConfiguration:
                 for key in _keys:
                     dct = dct[key]
                 dct[last_key] = type(dct[last_key])(value)
+            except ValueError as e:
+                print(f"dct[last_key] = {dct[last_key]}")
+                print(f"value = {value}")
+                raise
             except KeyError as e:
                 print(f"\nERROR!!!\nPath `{keys}` does not occur in the config.\n\n")
-                raise KeyError(e)
+                raise
 
     @property
     def configs(self) -> CONFDOTDICT:
