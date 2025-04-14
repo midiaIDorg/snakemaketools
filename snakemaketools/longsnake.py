@@ -39,6 +39,10 @@ def update_nested_dict(original, updates):
             if not key in original:
                 msg = f"Key `{key}` not found in original dictionary. Adding it with `{key}={value}`."
                 warn(msg)
+            elif value == "ELIMINATE_ME_FOR_GOOD":
+                msg = f"Eliminating key `{key}` after seeing `ELIMINATE_ME_FOR_GOOD`."
+                warn(msg)
+                continue
             original[key] = value
 
 
