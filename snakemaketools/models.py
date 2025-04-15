@@ -145,13 +145,13 @@ class Node(Storable):
 
     @classmethod
     @db_session
-    def GET_LINEAGE(cls, location: str) -> defaultdict:
+    def GET_LINEAGE(cls, location: str, parents_only: bool = False) -> defaultdict:
         paths_to_visit = [location]
         results = defaultdict(list)
         while paths_to_visit:
             node = Node[Node.GET(location=paths_to_visit.pop())]
             for node_name, node_path in node.get_parent_nodes().items():
-                if node_path not in results:
+                if node_path not in results and not parents_only:
                     paths_to_visit.append(node_path)
                 results[node_path].append(node_name)
         return results
