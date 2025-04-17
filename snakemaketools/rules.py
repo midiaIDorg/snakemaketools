@@ -90,21 +90,24 @@ class Config:
     """
 
     serialized: str
-    parsed: dict
-    location_wildcards: DotDict[str, Wildcard]
+    parsed: DotDict
+    # location_wildcards: DotDict[str, Wildcard]
+    wildcards: DotDict
 
     @classmethod
     def new(
         cls,
         config: dict | str,
-        extension: Wildcard,  # a required Wildcard
+        extension: str,  # a required Wildcard
+        # extension: Wildcard,  # a required Wildcard
         _converters: dict[
             str, snakemaketools.parsers.DictSerializer
         ] = snakemaketools.parsers.serializers,
-        _to_wildcards: Callable[
-            [dict[str, str]], Wildcard
-        ] = Wildcard.from_named_values,
-        **location_wildcards: Wildcard,
+        # _to_wildcards: Callable[
+        #     [dict[str, str]], Wildcard
+        # ] = Wildcard.from_named_values,
+        # **location_wildcards: Wildcard,
+        **wildcards,
     ):
         if isinstance(config, str):
             serialized = config
@@ -114,13 +117,19 @@ class Config:
             parsed = config
         else:
             raise ValueError
-        location_wildcards["extension"] = extension
-        location_wildcards = _to_wildcards(**location_wildcards)
+        wildcards["extension"] = extension
         return cls(
             serialized=serialized,
-            parsed=parsed,
-            location_wildcards=DotDict(location_wildcards),
+            parsed=DotDict.Recursive(parsed),
+            wildcards=DotDict(wildcards),
         )
+        # location_wildcards["extension"] = extension
+        # location_wildcards = _to_wildcards(**location_wildcards)
+        # return cls(
+        #     serialized=serialized,
+        #     parsed=parsed,
+        #     location_wildcards=DotDict(location_wildcards),
+        # )
 
 
 @dataclasses.dataclass

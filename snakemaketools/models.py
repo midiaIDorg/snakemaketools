@@ -191,11 +191,11 @@ class SimplePonyNodeStorage(snakemaketools.rules.NodeStorage):
                 serialized=config.serialized,
             )
             rule_id = None
-            for name, location_wildcard in config.location_wildcards.items():
+            for wildcard_name, wildcard_value in config.wildcards.items():
                 assert (
-                    name not in location_wildcards
-                ), f"`{name}` already in `location_wildcards`"
-                location_wildcards[name] = location_wildcard.value
+                    wildcard_name not in location_wildcards
+                ), f"`{wildcard_name}` already in `location_wildcards`"
+                location_wildcards[wildcard_name] = wildcard_value
         else:
             storable_id = rule_id = Rule.GETINSERT_RULEID(inputs)
             config_id = None
