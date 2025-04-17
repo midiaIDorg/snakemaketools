@@ -8,9 +8,11 @@ import abc
 import copy
 import dataclasses
 import typing
+
 from collections.abc import Callable
 
 import snakemaketools.parsers
+
 from snakemaketools.datastructures import DotDict
 
 
@@ -237,6 +239,8 @@ class Rule:
                 ), "Passed in Config to rule that is not a config_setter."
                 assert config is None, "can only set config once."
                 config = value
+            elif isinstance(value, str):
+                wildcards[key] = Wildcard(name=key, value=value)
             else:
                 raise ValueError(
                     f"Rule `{self.name}` received an invalid type: {type(value).__name__}."
