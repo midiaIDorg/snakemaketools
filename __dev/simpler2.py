@@ -31,3 +31,4 @@ longsnake.update_consolidated_config("diff_adding_back_physical_4DFF/F9477")
 longsnake.consolidated_config["wildcards"]
 longsnake.configs.precursor_clusterer.parsed
 longsnake.configs.precursor_clusterer.location_wildcards
+longsnake.configs
